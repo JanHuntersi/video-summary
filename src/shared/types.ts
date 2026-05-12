@@ -1,0 +1,77 @@
+// src/shared/types.ts
+export type VideoStatus =
+  | 'imported'
+  | 'transcribing'
+  | 'transcribed'
+  | 'summarizing'
+  | 'summarized'
+  | 'error';
+
+export interface TranscriptSegment {
+  start: number; // seconds
+  end: number;
+  text: string;
+}
+
+export interface VideoMeta {
+  id: string;
+  title: string;
+  slug: string;
+  folderName: string;
+  originalFilename: string;
+  sourceRelPath: string;       // relative to library root
+  thumbnailRelPath: string;
+  durationSec: number;
+  createdAt: string;            // ISO
+  status: VideoStatus;
+  hash?: string;
+  transcription?: { model: string; language: string; completedAt: string };
+  summary?: { provider: 'ollama' | 'gemini'; model: string; systemPrompt: string; generatedAt: string };
+  errorMessage?: string;
+}
+
+export interface IndexEntry {
+  id: string;
+  title: string;
+  folderName: string;
+  thumbnailRelPath: string;
+  durationSec: number;
+  createdAt: string;
+  status: VideoStatus;
+}
+
+export interface AppSettings {
+  libraryPath: string;
+  importMode: 'copy' | 'move';
+  whisper: { defaultModel: 'tiny' | 'base' | 'small' | 'medium' | 'large'; modelsDir: string };
+  ollama: { baseUrl: string };
+  gemini: { hasKey: boolean };          // actual key in keychain
+  prompts: { summary: string; chat: string };
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+export interface ChatHistory {
+  messages: ChatMessage[];
+  systemPromptUsed: string;
+}
+
+export type LlmProviderId = 'ollama' | 'gemini';
+
+export interface TranscriptionProgress {
+  videoId: string;
+  segmentIndex: number;
+  totalEstimate: number | null;
+  partialText: string;
+}
+
+export interface LlmStreamChunk {
+  requestId: string;
+  token: string;
+  done: boolean;
+  error?: string;
+}
