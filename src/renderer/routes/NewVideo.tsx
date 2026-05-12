@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@renderer/components/ui/button';
@@ -9,6 +9,7 @@ import { toast } from '@renderer/components/Toast';
 import type { LlmProviderId, VideoMeta } from '@shared/types';
 
 type StageState = 'idle' | 'active' | 'done' | 'error';
+type ImportSource = 'local' | 'url';
 
 function StageBullet({ index, state }: { index: number; state: StageState }) {
   return (
@@ -30,11 +31,20 @@ export default function NewVideo() {
   const nav = useNavigate();
   const { settings, load } = useSettings();
 
-  // Stage 1 — import
+  // Stage 1 — import (local or url)
+  const [importSource, setImportSource] = useState<ImportSource>('local');
   const [sourcePath, setSourcePath] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [importing, setImporting] = useState(false);
   const [meta, setMeta] = useState<VideoMeta | null>(null);
+
+  // URL import
+  const [url, setUrl] = useState('');
+  const [probing, setProbing] = useState(false);
+  const [probed, setProbed] = useState<{ title: string; durationSec: number; thumbnailUrl?: string } | null>(null);
+  const [urlRequestId, setUrlRequestId] = useState<string | null>(null);
+  const [urlProgress, setUrlProgress] = useState<string>('');
+  const urlRequestIdRef = useRef<string | null>(null);
 
   // Stage 2 — transcribe
   const [model, setModel] = useState<'tiny' | 'base' | 'small' | 'medium' | 'large'>('base');
@@ -53,21 +63,59 @@ export default function NewVideo() {
   const [activeReq, setActiveReq] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
+  // Auto-flow guards
+  const autoTranscribeStartedRef = useRef(false);
+  const autoSummarizeStartedRef = useRef(false);
+
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
     if (settings) {
       setModel(settings.whisper.defaultModel);
       setSystemPrompt(settings.prompts.summary);
+      if (settings.defaultLlm?.providerId) setProviderId(settings.defaultLlm.providerId);
+      if (settings.defaultLlm?.model) setLlmModel(settings.defaultLlm.model);
     }
   }, [settings]);
   useEffect(() => {
     window.api.llm.listModels(providerId)
-      .then(setLlmModels)
+      .then(models => {
+        setLlmModels(models);
+        // If a defaultLlm model exists for this provider and is available, prefer it.
+        if (settings?.defaultLlm?.providerId === providerId && settings.defaultLlm.model && models.includes(settings.defaultLlm.model)) {
+          setLlmModel(settings.defaultLlm.model);
+        }
+      })
       .catch(e => {
         setLlmModels([]);
         toast.error(`${providerId === 'ollama' ? 'Ollama' : 'Gemini'} unreachable: ${(e as Error).message}`);
       });
-  }, [providerId]);
+  }, [providerId, settings]);
+
+  // Subscribe to yt-dlp events
+  useEffect(() => {
+    const offP = window.api.ytdlp.onProgress(p => {
+      if (p.requestId !== urlRequestIdRef.current) return;
+      setUrlProgress(`${p.phase}: ${p.message}`);
+    });
+    const offD = window.api.ytdlp.onDone(p => {
+      if (p.requestId !== urlRequestIdRef.current) return;
+      setUrlProgress('');
+      setImporting(false);
+      setUrlRequestId(null);
+      urlRequestIdRef.current = null;
+      setMeta(p.meta);
+      toast.success('Downloaded & imported');
+    });
+    const offE = window.api.ytdlp.onError(p => {
+      if (p.requestId !== urlRequestIdRef.current) return;
+      setUrlProgress('');
+      setImporting(false);
+      setUrlRequestId(null);
+      urlRequestIdRef.current = null;
+      toast.error(`URL import failed: ${p.message}`);
+    });
+    return () => { offP(); offD(); offE(); };
+  }, []);
 
   useTranscriptionEvents({
     onProgress: p => { if (meta && p.videoId === meta.id) setProgressText(p.partialText); },
@@ -111,6 +159,48 @@ export default function NewVideo() {
     } finally { setImporting(false); }
   };
 
+  const probeUrl = async () => {
+    if (!url.trim()) return;
+    setProbing(true);
+    try {
+      const info = await window.api.library.probeUrl(url.trim());
+      setProbed(info);
+      setTitle(info.title);
+    } catch (e) {
+      toast.error(`Probe failed: ${(e as Error).message}`);
+    } finally {
+      setProbing(false);
+    }
+  };
+
+  const runUrlImport = async () => {
+    if (!url.trim() || !probed) return;
+    setImporting(true);
+    setUrlProgress('Starting download…');
+    try {
+      const { requestId } = await window.api.library.startUrlImport(url.trim(), title || undefined);
+      setUrlRequestId(requestId);
+      urlRequestIdRef.current = requestId;
+    } catch (e) {
+      setImporting(false);
+      setUrlProgress('');
+      toast.error(`Could not start URL import: ${(e as Error).message}`);
+    }
+  };
+
+  const cancelUrlImport = async () => {
+    if (!urlRequestId) return;
+    try {
+      await window.api.ytdlp.cancel(urlRequestId);
+    } catch {
+      // ignore
+    }
+    setImporting(false);
+    setUrlProgress('');
+    setUrlRequestId(null);
+    urlRequestIdRef.current = null;
+  };
+
   const runTranscribe = async () => {
     if (!meta) return;
     setTranscribeError(null);
@@ -136,6 +226,49 @@ export default function NewVideo() {
       toast.error(`Cannot start summary: ${(e as Error).message}`);
     }
   };
+
+  // Auto-flow: after import → transcribe
+  useEffect(() => {
+    if (!meta || !settings?.autoTranscribe) return;
+    if (autoTranscribeStartedRef.current) return;
+    if (transcribing || meta.status === 'transcribed' || meta.status === 'summarized') return;
+    autoTranscribeStartedRef.current = true;
+    void runTranscribe();
+  }, [meta, settings]);
+
+  // Auto-flow: after transcription → summarize
+  useEffect(() => {
+    if (!meta || !settings?.autoSummarize) return;
+    if (autoSummarizeStartedRef.current) return;
+    if (!(meta.status === 'transcribed')) return;
+    const defModel = settings.defaultLlm?.model;
+    const defProv = settings.defaultLlm?.providerId;
+    if (!defModel || !defProv) return;
+    autoSummarizeStartedRef.current = true;
+    // ensure provider/model state are set, then summarize
+    setProviderId(defProv);
+    setLlmModel(defModel);
+    // small defer so state propagation completes, then call summarize directly with explicit values
+    void (async () => {
+      const tr = await window.api.library.readTranscript(meta.id);
+      if (!tr) return;
+      const transcriptText = tr.map(s => `[${Math.floor(s.start)}s] ${s.text}`).join('\n');
+      setSummary('');
+      setSummaryError(null);
+      setSummarizing(true);
+      try {
+        const reqId = await window.api.llm.summarize({
+          providerId: defProv, model: defModel,
+          transcript: transcriptText, systemPrompt
+        });
+        setActiveReq(reqId);
+      } catch (e) {
+        setSummarizing(false);
+        setSummaryError((e as Error).message);
+        toast.error(`Auto-summary failed: ${(e as Error).message}`);
+      }
+    })();
+  }, [meta, settings, systemPrompt]);
 
   const saveAndOpen = async () => {
     if (!meta) return;
@@ -166,8 +299,26 @@ export default function NewVideo() {
           <StageBullet index={1} state={stage1State} />
           <div>
             <h2 className="text-lg font-semibold leading-8 mb-3">Import</h2>
+
+            {!meta && (
+              <div className="inline-flex rounded-md border bg-white p-0.5 mb-3 text-sm">
+                <button
+                  onClick={() => setImportSource('local')}
+                  disabled={importing}
+                  className={cn('px-3 py-1 rounded', importSource === 'local' ? 'bg-slate-900 text-white' : 'text-slate-700')}>
+                  Local file
+                </button>
+                <button
+                  onClick={() => setImportSource('url')}
+                  disabled={importing}
+                  className={cn('px-3 py-1 rounded', importSource === 'url' ? 'bg-slate-900 text-white' : 'text-slate-700')}>
+                  From URL
+                </button>
+              </div>
+            )}
+
             <div className="space-y-3">
-              {!meta ? (
+              {!meta && importSource === 'local' && (
                 <>
                   <Button variant="outline" onClick={pickFile} disabled={importing}>
                     {sourcePath ? 'Change file…' : 'Choose video file…'}
@@ -184,7 +335,50 @@ export default function NewVideo() {
                     </>
                   )}
                 </>
-              ) : (
+              )}
+
+              {!meta && importSource === 'url' && (
+                <>
+                  <label className="block text-sm">YouTube / video URL<br />
+                    <input value={url} onChange={e => setUrl(e.target.value)}
+                           placeholder="https://www.youtube.com/watch?v=…"
+                           disabled={importing}
+                           className="border rounded px-2 py-1 w-full max-w-md" />
+                  </label>
+                  {!probed && (
+                    <Button variant="outline" onClick={probeUrl} disabled={probing || importing || !url.trim()}>
+                      {probing ? 'Fetching…' : 'Fetch info'}
+                    </Button>
+                  )}
+                  {probed && (
+                    <>
+                      <div className="text-sm text-slate-600">
+                        Duration: {Math.floor(probed.durationSec / 60)}:{String(Math.floor(probed.durationSec % 60)).padStart(2, '0')}
+                      </div>
+                      <label className="block text-sm">Title<br />
+                        <input value={title} onChange={e => setTitle(e.target.value)} disabled={importing}
+                               className="border rounded px-2 py-1 w-full max-w-md" />
+                      </label>
+                      {!importing && (
+                        <Button onClick={runUrlImport} disabled={!title}>
+                          Download & Import
+                        </Button>
+                      )}
+                      {importing && (
+                        <div className="space-y-2">
+                          <div className="text-sm text-slate-600 bg-slate-50 border rounded p-3">
+                            <Loader2 size={14} className="inline animate-spin mr-1.5" />
+                            {urlProgress || 'Downloading…'}
+                          </div>
+                          <Button variant="outline" onClick={cancelUrlImport}>Cancel</Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
+              {meta && (
                 <div className="text-sm text-slate-600">Imported as <b>{meta.title}</b> ({Math.floor(meta.durationSec)}s)</div>
               )}
             </div>

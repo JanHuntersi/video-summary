@@ -1,6 +1,6 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { Pencil } from 'lucide-react';
+import { Pencil, Sparkles, ListChecks, Loader2 } from 'lucide-react';
 import { useVideo } from '@renderer/hooks/useVideo';
 import { TranscriptView } from '@renderer/components/TranscriptView';
 import { SummaryView } from '@renderer/components/SummaryView';
@@ -12,10 +12,17 @@ import { toast } from '@renderer/components/Toast';
 import { Button } from '@renderer/components/ui/button';
 import type { VideoMeta } from '@shared/types';
 
-type Tab = 'transcript' | 'summary' | 'info';
+type Tab = 'transcript' | 'summary' | 'highlights' | 'info';
+
+const HIGHLIGHTS_PROMPT =
+  'Extract the 5–10 most important moments from this video transcript. ' +
+  'Output as a bulleted list with timestamps and 1-line descriptions. ' +
+  'Format: - [mm:ss] description';
 
 export default function VideoDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const seekParam = searchParams.get('t');
   const navigate = useNavigate();
   const { meta, videoUrl, transcript, summary, setSummary, setMeta } = useVideo(id);
   const { settings } = useSettings();
@@ -26,27 +33,134 @@ export default function VideoDetail() {
   const [paths, setPaths] = useState<{ absSourcePath: string; absFolder: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [metaReady, setMetaReady] = useState(false);
+  const seekAppliedRef = useRef(false);
+
+  // Quick summary
+  const [quickReq, setQuickReq] = useState<string | null>(null);
+  const [quickBuf, setQuickBuf] = useState('');
+
+  // Highlights
+  const [highlights, setHighlights] = useState<string>('');
+  const [highlightsReq, setHighlightsReq] = useState<string | null>(null);
+  const [highlightsBuf, setHighlightsBuf] = useState('');
+  const highlightsChatIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (id) window.api.library.getPaths(id).then(p => setPaths({ absSourcePath: p.absSourcePath, absFolder: p.absFolder }));
   }, [id]);
 
+  // Load existing highlights chat (if any) when video loads
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      try {
+        const chats = await window.api.library.listChats(id);
+        const hi = chats.find(c => c.title === 'Highlights');
+        if (hi) {
+          highlightsChatIdRef.current = hi.id;
+          const rec = await window.api.library.readChatById(id, hi.id);
+          const last = rec?.messages.filter(m => m.role === 'assistant').pop();
+          if (last) setHighlights(last.content);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [id]);
+
+  // Seek to ?t= when video metadata loaded
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !seekParam || !metaReady || seekAppliedRef.current) return;
+    const t = parseFloat(seekParam);
+    if (!Number.isFinite(t)) return;
+    seekAppliedRef.current = true;
+    try {
+      v.currentTime = t;
+      void v.play().catch(() => {});
+    } catch {
+      // ignore
+    }
+  }, [seekParam, metaReady, videoUrl]);
+
   useLlmStream(c => {
-    if (c.requestId !== regenReq) return;
-    if (c.error) {
-      toast.error(`Summary failed: ${c.error}`);
-      setRegenReq(null);
+    if (c.requestId === regenReq) {
+      if (c.error) {
+        toast.error(`Summary failed: ${c.error}`);
+        setRegenReq(null);
+        return;
+      }
+      if (c.done) {
+        window.api.library.writeSummary(id!, regenBuf).then(() => {
+          setSummary(regenBuf);
+          toast.success('Summary regenerated');
+        });
+        setRegenReq(null);
+        return;
+      }
+      setRegenBuf(prev => prev + c.token);
       return;
     }
-    if (c.done) {
-      window.api.library.writeSummary(id!, regenBuf).then(() => {
-        setSummary(regenBuf);
-        toast.success('Summary regenerated');
+    if (c.requestId === quickReq) {
+      if (c.error) {
+        toast.error(`Quick summary failed: ${c.error}`);
+        setQuickReq(null);
+        return;
+      }
+      if (c.done) {
+        const finalText = quickBuf;
+        window.api.library.writeSummary(id!, finalText).then(() => {
+          setSummary(finalText);
+          toast.success('Quick summary saved');
+        });
+        setQuickReq(null);
+        return;
+      }
+      setQuickBuf(prev => {
+        const next = prev + c.token;
+        setSummary(next);
+        return next;
       });
-      setRegenReq(null);
       return;
     }
-    setRegenBuf(prev => prev + c.token);
+    if (c.requestId === highlightsReq) {
+      if (c.error) {
+        toast.error(`Highlights failed: ${c.error}`);
+        setHighlightsReq(null);
+        return;
+      }
+      if (c.done) {
+        const finalText = highlightsBuf;
+        setHighlights(finalText);
+        // Persist as a chat titled "Highlights"
+        (async () => {
+          try {
+            let chatId = highlightsChatIdRef.current;
+            if (!chatId) {
+              const created = await window.api.library.createChat(id!, 'Highlights');
+              chatId = created.id;
+              highlightsChatIdRef.current = chatId;
+            }
+            const now = new Date().toISOString();
+            await window.api.library.writeChatById(id!, {
+              id: chatId!,
+              title: 'Highlights',
+              createdAt: now,
+              lastMessageAt: now,
+              systemPromptUsed: HIGHLIGHTS_PROMPT,
+              messages: [{ role: 'assistant', content: finalText, createdAt: now }]
+            });
+            toast.success('Highlights saved');
+          } catch (e) {
+            toast.error(`Could not persist highlights: ${(e as Error).message}`);
+          }
+        })();
+        setHighlightsReq(null);
+        return;
+      }
+      setHighlightsBuf(prev => prev + c.token);
+    }
   });
 
   if (!meta) return <div className="p-4">Loading…</div>;
@@ -78,6 +192,56 @@ export default function VideoDetail() {
     }
   };
 
+  const quickSummary = async () => {
+    if (!transcript || !settings) return;
+    if (!settings.defaultLlm?.model) {
+      toast.error('Set a default LLM model in Settings → Workflow');
+      return;
+    }
+    setTab('summary');
+    setQuickBuf('');
+    setSummary('');
+    const transcriptText = transcript.map(s => `[${Math.floor(s.start)}s] ${s.text}`).join('\n');
+    try {
+      const reqId = await window.api.llm.summarize({
+        providerId: settings.defaultLlm.providerId,
+        model: settings.defaultLlm.model,
+        transcript: transcriptText,
+        systemPrompt: settings.prompts.summary
+      });
+      setQuickReq(reqId);
+    } catch (e) {
+      toast.error(`Quick summary failed: ${(e as Error).message}`);
+    }
+  };
+
+  const generateHighlights = async () => {
+    if (!transcript || !settings) return;
+    if (!settings.defaultLlm?.model) {
+      toast.error('Set a default LLM model in Settings → Workflow');
+      return;
+    }
+    setTab('highlights');
+    setHighlightsBuf('');
+    setHighlights('');
+    const transcriptText = transcript.map(s => {
+      const m = Math.floor(s.start / 60);
+      const ss = Math.floor(s.start % 60).toString().padStart(2, '0');
+      return `[${m}:${ss}] ${s.text}`;
+    }).join('\n');
+    try {
+      const reqId = await window.api.llm.summarize({
+        providerId: settings.defaultLlm.providerId,
+        model: settings.defaultLlm.model,
+        transcript: transcriptText,
+        systemPrompt: HIGHLIGHTS_PROMPT
+      });
+      setHighlightsReq(reqId);
+    } catch (e) {
+      toast.error(`Highlights failed: ${(e as Error).message}`);
+    }
+  };
+
   const saveMeta = async (patch: Partial<VideoMeta>) => {
     const updated = await window.api.library.updateMeta(meta.id, patch);
     setMeta(updated);
@@ -93,6 +257,8 @@ export default function VideoDetail() {
       toast.error(`Delete failed: ${(e as Error).message}`);
     }
   };
+
+  const displayedHighlights = highlightsReq ? highlightsBuf : highlights;
 
   return (
     <div className="h-full flex flex-col">
@@ -111,9 +277,19 @@ export default function VideoDetail() {
             )}
           </div>
         </div>
-        <Button variant="outline" onClick={() => setEditing(true)} className="gap-1.5">
-          <Pencil size={14} /> Edit
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={quickSummary} disabled={!transcript || !!quickReq} className="gap-1.5">
+            {quickReq ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            Quick summary
+          </Button>
+          <Button variant="outline" onClick={generateHighlights} disabled={!transcript || !!highlightsReq} className="gap-1.5">
+            {highlightsReq ? <Loader2 size={14} className="animate-spin" /> : <ListChecks size={14} />}
+            Highlight key moments
+          </Button>
+          <Button variant="outline" onClick={() => setEditing(true)} className="gap-1.5">
+            <Pencil size={14} /> Edit
+          </Button>
+        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
@@ -122,11 +298,12 @@ export default function VideoDetail() {
             ref={videoRef}
             src={videoUrl}
             controls
+            onLoadedMetadata={() => setMetaReady(true)}
             onTimeUpdate={e => setCurrentTime((e.target as HTMLVideoElement).currentTime)}
             className="w-full bg-black aspect-video"
           />
           <div className="flex border-b text-sm">
-            {(['transcript', 'summary', 'info'] as const).map(t => (
+            {(['transcript', 'summary', 'highlights', 'info'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -140,6 +317,23 @@ export default function VideoDetail() {
             {tab === 'transcript' && transcript && <TranscriptView segments={transcript} currentTime={currentTime} onSeek={onSeek} />}
             {tab === 'transcript' && !transcript && <div className="p-3 text-sm text-slate-500">No transcript.</div>}
             {tab === 'summary' && <SummaryView markdown={regenReq ? regenBuf : summary} onRegenerate={regenerate} />}
+            {tab === 'highlights' && (
+              <div className="p-4 overflow-auto h-full">
+                {!displayedHighlights && !highlightsReq && (
+                  <div className="text-sm text-slate-500">
+                    No highlights yet. Click <b>Highlight key moments</b> above to generate.
+                  </div>
+                )}
+                {displayedHighlights && (
+                  <pre className="whitespace-pre-wrap text-sm leading-relaxed">{displayedHighlights}</pre>
+                )}
+                {highlightsReq && (
+                  <div className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
+                    <Loader2 size={12} className="animate-spin" /> generating…
+                  </div>
+                )}
+              </div>
+            )}
             {tab === 'info' && <InfoView meta={meta} paths={paths} onEditClick={() => setEditing(true)} />}
           </div>
         </div>

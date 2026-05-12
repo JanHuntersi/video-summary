@@ -1,14 +1,26 @@
 import { useEffect, useState } from 'react';
 import { useSettings } from '@renderer/stores/settings';
 import { Button } from '@renderer/components/ui/button';
+import type { LlmProviderId } from '@shared/types';
+import { toast } from '@renderer/components/Toast';
 
 export default function SettingsPage() {
   const { settings, load, save } = useSettings();
   const [keyInput, setKeyInput] = useState('');
   const [ollamaStatus, setOllamaStatus] = useState<string>('');
   const [geminiStatus, setGeminiStatus] = useState<string>('');
+  const [wfModels, setWfModels] = useState<string[]>([]);
 
   useEffect(() => { void load(); }, []);
+
+  useEffect(() => {
+    if (!settings) return;
+    const prov = settings.defaultLlm?.providerId ?? 'ollama';
+    window.api.llm.listModels(prov)
+      .then(setWfModels)
+      .catch(() => setWfModels([]));
+  }, [settings?.defaultLlm?.providerId]);
+
   if (!settings) return <div className="p-4">Loading…</div>;
 
   const pickLibrary = async () => {
@@ -27,6 +39,15 @@ export default function SettingsPage() {
     await window.api.settings.setGeminiKey(keyInput);
     await load();
     setKeyInput('');
+  };
+
+  const changeWfProvider = async (providerId: LlmProviderId) => {
+    await save({ defaultLlm: { providerId, model: '' } });
+  };
+  const changeWfModel = async (model: string) => {
+    const providerId = settings.defaultLlm?.providerId ?? 'ollama';
+    await save({ defaultLlm: { providerId, model } });
+    if (model) toast.success('Default LLM saved');
   };
 
   return (
@@ -53,6 +74,45 @@ export default function SettingsPage() {
             {(['tiny','base','small','medium','large'] as const).map(m => <option key={m}>{m}</option>)}
           </select>
         </label>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold mb-2">Workflow automation</h2>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={!!settings.autoTranscribe}
+                   onChange={e => save({ autoTranscribe: e.target.checked })}/>
+            Auto-start transcription after import
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={!!settings.autoSummarize}
+                   onChange={e => save({ autoSummarize: e.target.checked })}/>
+            Auto-generate summary after transcription
+          </label>
+        </div>
+        <div className="mt-3">
+          <div className="text-sm font-medium mb-1">Default LLM for auto-summary &amp; quick actions</div>
+          <div className="flex flex-wrap gap-3 text-sm items-center">
+            <label>Provider&nbsp;
+              <select
+                value={settings.defaultLlm?.providerId ?? 'ollama'}
+                onChange={e => changeWfProvider(e.target.value as LlmProviderId)}
+                className="border rounded px-2 py-1">
+                <option value="ollama">Ollama</option>
+                {settings.gemini.hasKey && <option value="gemini">Gemini</option>}
+              </select>
+            </label>
+            <label>Model&nbsp;
+              <select
+                value={settings.defaultLlm?.model ?? ''}
+                onChange={e => changeWfModel(e.target.value)}
+                className="border rounded px-2 py-1">
+                <option value="">— select —</option>
+                {wfModels.map(m => <option key={m}>{m}</option>)}
+              </select>
+            </label>
+          </div>
+        </div>
       </section>
 
       <section>

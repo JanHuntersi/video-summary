@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useLibrary } from '@renderer/stores/library';
 import { useSettings } from '@renderer/stores/settings';
@@ -7,16 +7,49 @@ import { Button } from '@renderer/components/ui/button';
 import type { VideoStatus } from '@shared/types';
 import { cn } from '@renderer/lib/cn';
 
+type SearchMatch = { segmentStart: number; snippet: string };
+type SearchResult = { videoId: string; title: string; matches: SearchMatch[] };
+
+function formatTime(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
 export default function Library() {
   const { videos, refresh } = useLibrary();
-  const { load: loadSettings } = useSettings();
+  const { settings, load: loadSettings } = useSettings();
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState<VideoStatus | 'all'>('all');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [globalResults, setGlobalResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     void loadSettings().then(refresh);
   }, []);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (q.trim().length < 3) {
+      setGlobalResults([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const r = await window.api.library.searchAll(q.trim());
+        setGlobalResults(r);
+      } catch {
+        setGlobalResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [q]);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -37,6 +70,12 @@ export default function Library() {
   const toggleTag = (t: string) =>
     setSelectedTags(cur => cur.includes(t) ? cur.filter(x => x !== t) : [...cur, t]);
 
+  const videosById = useMemo(() => {
+    const m = new Map<string, typeof videos[number]>();
+    videos.forEach(v => m.set(v.id, v));
+    return m;
+  }, [videos]);
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-4">
@@ -46,7 +85,7 @@ export default function Library() {
 
       <div className="flex flex-wrap gap-2 mb-3 items-center">
         <input value={q} onChange={e => setQ(e.target.value)}
-               placeholder="Search title…"
+               placeholder="Search title or transcripts…"
                className="border rounded px-3 py-2 text-sm w-72" />
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as VideoStatus | 'all')}
                 className="border rounded px-2 py-2 text-sm">
@@ -74,6 +113,49 @@ export default function Library() {
             </button>
           ))}
         </div>
+      )}
+
+      {globalResults.length > 0 && (
+        <section className="mb-6 border rounded-lg bg-white">
+          <div className="px-4 py-2 border-b text-sm font-medium text-slate-700 flex items-center justify-between">
+            <span>Transcript matches</span>
+            {isSearching && <span className="text-xs text-slate-500">searching…</span>}
+          </div>
+          <ul className="divide-y">
+            {globalResults.map(r => {
+              const entry = videosById.get(r.videoId);
+              const thumb = entry && settings
+                ? `vswfile://local${encodeURI(`${settings.libraryPath}/${entry.thumbnailRelPath}`)}`
+                : '';
+              return (
+                <li key={r.videoId} className="p-3 flex gap-3">
+                  <Link to={`/video/${r.videoId}`} className="shrink-0 w-24 aspect-video bg-slate-100 rounded overflow-hidden">
+                    {thumb && <img src={thumb} className="w-full h-full object-cover" />}
+                  </Link>
+                  <div className="flex-1 min-w-0">
+                    <Link to={`/video/${r.videoId}`} className="font-medium text-sm hover:underline truncate block" title={r.title}>
+                      {r.title}
+                    </Link>
+                    <ul className="mt-1 space-y-0.5">
+                      {r.matches.slice(0, 3).map((m, i) => (
+                        <li key={i}>
+                          <Link
+                            to={`/video/${r.videoId}?t=${Math.floor(m.segmentStart)}`}
+                            className="text-xs text-slate-600 hover:text-slate-900 hover:underline block truncate"
+                            title={m.snippet}
+                          >
+                            <span className="text-slate-400 font-mono mr-1">[{formatTime(m.segmentStart)}]</span>
+                            {m.snippet}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
       {filtered.length === 0 ? (
