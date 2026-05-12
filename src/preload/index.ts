@@ -35,7 +35,29 @@ const api = {
       ipcRenderer.invoke('library:getPaths', id),
     revealInFinder: (absPath: string): Promise<void> => ipcRenderer.invoke('library:revealInFinder', absPath),
     searchAll: (query: string): Promise<Array<{ videoId: string; title: string; matches: Array<{ segmentStart: number; snippet: string }> }>> =>
-      ipcRenderer.invoke('library:searchAll', query)
+      ipcRenderer.invoke('library:searchAll', query),
+    probeUrl: (url: string): Promise<{ title: string; durationSec: number; thumbnailUrl?: string }> =>
+      ipcRenderer.invoke('library:probeUrl', url),
+    startUrlImport: (url: string, titleOverride?: string): Promise<{ requestId: string }> =>
+      ipcRenderer.invoke('library:startUrlImport', { url, titleOverride })
+  },
+  ytdlp: {
+    cancel: (requestId: string): Promise<void> => ipcRenderer.invoke('ytdlp:cancel', requestId),
+    onProgress: (fn: (p: { requestId: string; phase: string; message: string }) => void) => {
+      const listener = (_: unknown, p: any) => fn(p);
+      ipcRenderer.on('ytdlp:progress', listener);
+      return () => ipcRenderer.removeListener('ytdlp:progress', listener);
+    },
+    onDone: (fn: (p: { requestId: string; meta: VideoMeta }) => void) => {
+      const listener = (_: unknown, p: any) => fn(p);
+      ipcRenderer.on('ytdlp:done', listener);
+      return () => ipcRenderer.removeListener('ytdlp:done', listener);
+    },
+    onError: (fn: (p: { requestId: string; message: string }) => void) => {
+      const listener = (_: unknown, p: any) => fn(p);
+      ipcRenderer.on('ytdlp:error', listener);
+      return () => ipcRenderer.removeListener('ytdlp:error', listener);
+    }
   },
   transcription: {
     start: (videoId: string, model: string, language: string) =>
