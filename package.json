@@ -12,6 +12,13 @@
     "typecheck": "tsc --noEmit",
     "package": "electron-vite build && electron-builder"
   },
+  "build": {
+    "appId": "com.local.videosummary",
+    "productName": "VideoSummary",
+    "directories": { "output": "dist" },
+    "files": ["out/**/*", "package.json"],
+    "mac": { "category": "public.app-category.productivity" }
+  },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "class-variance-authority": "^0.7.1",
