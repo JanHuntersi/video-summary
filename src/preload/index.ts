@@ -33,7 +33,9 @@ const api = {
     videoFileUrl: (id: string): Promise<string> => ipcRenderer.invoke('library:videoFileUrl', id),
     getPaths: (id: string): Promise<{ videoUrl: string; thumbnailUrl: string; absSourcePath: string; absFolder: string }> =>
       ipcRenderer.invoke('library:getPaths', id),
-    revealInFinder: (absPath: string): Promise<void> => ipcRenderer.invoke('library:revealInFinder', absPath)
+    revealInFinder: (absPath: string): Promise<void> => ipcRenderer.invoke('library:revealInFinder', absPath),
+    searchAll: (query: string): Promise<Array<{ videoId: string; title: string; matches: Array<{ segmentStart: number; snippet: string }> }>> =>
+      ipcRenderer.invoke('library:searchAll', query)
   },
   transcription: {
     start: (videoId: string, model: string, language: string) =>

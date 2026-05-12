@@ -222,6 +222,62 @@ export function registerLibraryIpc() {
     };
   });
 
+  ipcMain.handle('library:searchAll', async (_e, query: string) => {
+    const q = (query ?? '').trim();
+    if (q.length === 0) return [];
+    const needle = q.toLowerCase();
+    const s = await loadSettings();
+    const entries = await listLibrary(s.libraryPath);
+
+    const results: Array<{
+      videoId: string;
+      title: string;
+      matches: Array<{ segmentStart: number; snippet: string }>;
+    }> = [];
+
+    for (const entry of entries) {
+      if (results.length >= 100) break;
+      const matches: Array<{ segmentStart: number; snippet: string }> = [];
+
+      if (entry.title.toLowerCase().includes(needle)) {
+        matches.push({ segmentStart: 0, snippet: '(title match)' });
+      }
+      for (const tag of entry.tags ?? []) {
+        if (tag.toLowerCase().includes(needle)) {
+          matches.push({ segmentStart: 0, snippet: `(tag: ${tag})` });
+        }
+      }
+
+      try {
+        const raw = await fs.readFile(
+          join(s.libraryPath, entry.folderName, 'transcript.json'),
+          'utf8'
+        );
+        const segments = JSON.parse(raw) as TranscriptSegment[];
+        for (const seg of segments) {
+          if (matches.length >= 5) break;
+          if ((seg.text ?? '').toLowerCase().includes(needle)) {
+            const text = seg.text ?? '';
+            const snippet = text.length > 200 ? text.slice(0, 200) + '…' : text;
+            matches.push({ segmentStart: seg.start, snippet });
+          }
+        }
+      } catch {
+        // no transcript or unreadable — skip
+      }
+
+      if (matches.length > 0) {
+        results.push({
+          videoId: entry.id,
+          title: entry.title,
+          matches: matches.slice(0, 5)
+        });
+      }
+    }
+
+    return results;
+  });
+
   ipcMain.handle('library:revealInFinder', async (_e, absPath: string) => {
     const { shell } = await import('electron');
     shell.showItemInFolder(absPath);
