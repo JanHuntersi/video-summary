@@ -13,6 +13,20 @@ import type { ModelName } from '@main/transcription/models';
 import type { TranscriptSegment } from '@shared/types';
 
 const queue = new TranscriptionQueue();
+let queueSubscribed = false;
+
+function broadcastQueue() {
+  const items = queue.getState();
+  for (const win of BrowserWindow.getAllWindows()) {
+    win.webContents.send('transcription:queueChanged', { items });
+  }
+}
+
+function ensureQueueSubscription() {
+  if (queueSubscribed) return;
+  queueSubscribed = true;
+  queue.onChange(broadcastQueue);
+}
 
 async function extractWav(videoPath: string): Promise<string> {
   if (!ffmpegPath) throw new Error('ffmpeg not found');
@@ -32,6 +46,10 @@ async function extractWav(videoPath: string): Promise<string> {
 }
 
 export function registerTranscriptionIpc() {
+  ensureQueueSubscription();
+
+  ipcMain.handle('transcription:getQueue', async () => queue.getState());
+
   ipcMain.handle(
     'transcription:start',
     async (e, args: { videoId: string; model: ModelName; language: string }) => {
@@ -40,7 +58,7 @@ export function registerTranscriptionIpc() {
       const meta = await readMeta(s.libraryPath, args.videoId);
       const videoPath = join(s.libraryPath, meta.sourceRelPath);
 
-      await queue.enqueue(args.videoId, async () => {
+      await queue.enqueue(args.videoId, meta.title, async () => {
         try {
           await updateMeta(s.libraryPath, args.videoId, { status: 'transcribing' });
           win?.webContents.send('transcription:progress', {

@@ -52,6 +52,13 @@ const api = {
       const listener = (_: unknown, p: any) => fn(p);
       ipcRenderer.on('transcription:error', listener);
       return () => ipcRenderer.removeListener('transcription:error', listener);
+    },
+    getQueue: (): Promise<Array<{ videoId: string; title: string; status: 'queued' | 'running'; addedAt: string }>> =>
+      ipcRenderer.invoke('transcription:getQueue'),
+    onQueueChanged: (fn: (items: Array<{ videoId: string; title: string; status: 'queued' | 'running'; addedAt: string }>) => void) => {
+      const listener = (_: unknown, p: { items: Array<{ videoId: string; title: string; status: 'queued' | 'running'; addedAt: string }> }) => fn(p.items);
+      ipcRenderer.on('transcription:queueChanged', listener);
+      return () => ipcRenderer.removeListener('transcription:queueChanged', listener);
     }
   },
   llm: {
