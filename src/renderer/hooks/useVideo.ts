@@ -19,5 +19,5 @@ export function useVideo(id: string | undefined) {
     })();
   }, [id]);
 
-  return { meta, videoUrl, transcript, summary, chat, setSummary, setChat };
+  return { meta, videoUrl, transcript, summary, chat, setMeta, setSummary, setChat };
 }

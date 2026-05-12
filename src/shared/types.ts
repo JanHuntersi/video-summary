@@ -28,6 +28,8 @@ export interface VideoMeta {
   transcription?: { model: string; language: string; completedAt: string };
   summary?: { provider: 'ollama' | 'gemini'; model: string; systemPrompt: string; generatedAt: string };
   errorMessage?: string;
+  tags?: string[];
+  notes?: string;
 }
 
 export interface IndexEntry {
@@ -38,6 +40,7 @@ export interface IndexEntry {
   durationSec: number;
   createdAt: string;
   status: VideoStatus;
+  tags?: string[];
 }
 
 export interface AppSettings {
@@ -47,6 +50,9 @@ export interface AppSettings {
   ollama: { baseUrl: string };
   gemini: { hasKey: boolean };          // actual key in keychain
   prompts: { summary: string; chat: string };
+  defaultLlm: { providerId: 'ollama' | 'gemini'; model: string };
+  autoTranscribe: boolean;
+  autoSummarize: boolean;
 }
 
 export interface ChatMessage {
@@ -58,6 +64,21 @@ export interface ChatMessage {
 export interface ChatHistory {
   messages: ChatMessage[];
   systemPromptUsed: string;
+}
+
+export interface ChatRecord extends ChatHistory {
+  id: string;
+  title: string;
+  createdAt: string;       // ISO
+  lastMessageAt: string;   // ISO
+}
+
+export interface ChatSummary {
+  id: string;
+  title: string;
+  createdAt: string;
+  lastMessageAt: string;
+  messageCount: number;
 }
 
 export type LlmProviderId = 'ollama' | 'gemini';

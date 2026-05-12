@@ -21,7 +21,16 @@ export async function loadSettings(): Promise<AppSettings> {
   try {
     const raw = await fs.readFile(settingsPath(), 'utf8');
     const parsed = JSON.parse(raw);
-    cached = { ...def, ...parsed, whisper: { ...def.whisper, ...parsed.whisper }, ollama: { ...def.ollama, ...parsed.ollama }, prompts: { ...def.prompts, ...parsed.prompts } };
+    cached = {
+      ...def,
+      ...parsed,
+      whisper: { ...def.whisper, ...parsed.whisper },
+      ollama: { ...def.ollama, ...parsed.ollama },
+      prompts: { ...def.prompts, ...parsed.prompts },
+      defaultLlm: { ...def.defaultLlm, ...(parsed.defaultLlm ?? {}) },
+      autoTranscribe: parsed.autoTranscribe ?? def.autoTranscribe,
+      autoSummarize: parsed.autoSummarize ?? def.autoSummarize
+    };
   } catch {
     cached = def;
   }

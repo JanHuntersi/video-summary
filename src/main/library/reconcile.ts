@@ -30,7 +30,7 @@ export async function reconcileLibrary(libraryPath: string): Promise<void> {
       result.push({
         id: meta.id, title: meta.title, folderName: meta.folderName,
         thumbnailRelPath: meta.thumbnailRelPath, durationSec: meta.durationSec,
-        createdAt: meta.createdAt, status
+        createdAt: meta.createdAt, status, tags: meta.tags ?? []
       });
       seen.add(meta.id);
     } catch {

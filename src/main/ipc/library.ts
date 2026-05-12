@@ -113,9 +113,117 @@ export function registerLibraryIpc() {
     );
   });
 
+  // --- Multi-chat sessions per video ---
+  ipcMain.handle('library:listChats', async (_e, videoId: string) => {
+    const s = await loadSettings();
+    const meta = await readMeta(s.libraryPath, videoId);
+    const chatsDir = join(s.libraryPath, meta.folderName, 'chats');
+    await fs.mkdir(chatsDir, { recursive: true });
+
+    // Migrate legacy single chat.json once.
+    const legacy = join(s.libraryPath, meta.folderName, 'chat.json');
+    try {
+      const raw = await fs.readFile(legacy, 'utf8');
+      const old = JSON.parse(raw) as ChatHistory;
+      if (old.messages && old.messages.length > 0) {
+        const migratedId = `chat-${Date.now().toString(36)}`;
+        const record = {
+          id: migratedId,
+          title: 'Imported chat',
+          createdAt: new Date().toISOString(),
+          lastMessageAt: old.messages[old.messages.length - 1].createdAt ?? new Date().toISOString(),
+          messages: old.messages,
+          systemPromptUsed: old.systemPromptUsed
+        };
+        await fs.writeFile(join(chatsDir, `${migratedId}.json`), JSON.stringify(record, null, 2));
+      }
+      await fs.unlink(legacy).catch(() => {});
+    } catch { /* no legacy file */ }
+
+    const files = (await fs.readdir(chatsDir).catch(() => [])).filter(f => f.endsWith('.json'));
+    const summaries = await Promise.all(files.map(async f => {
+      const data = JSON.parse(await fs.readFile(join(chatsDir, f), 'utf8'));
+      return {
+        id: data.id, title: data.title, createdAt: data.createdAt,
+        lastMessageAt: data.lastMessageAt, messageCount: (data.messages ?? []).length
+      };
+    }));
+    return summaries.sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
+  });
+
+  ipcMain.handle('library:readChatById', async (_e, videoId: string, chatId: string) => {
+    const s = await loadSettings();
+    const meta = await readMeta(s.libraryPath, videoId);
+    try {
+      return JSON.parse(await fs.readFile(join(s.libraryPath, meta.folderName, 'chats', `${chatId}.json`), 'utf8'));
+    } catch { return null; }
+  });
+
+  ipcMain.handle('library:writeChatById', async (_e, videoId: string, record: { id: string; title: string; createdAt: string; lastMessageAt: string; messages: ChatHistory['messages']; systemPromptUsed: string }) => {
+    const s = await loadSettings();
+    const meta = await readMeta(s.libraryPath, videoId);
+    const dir = join(s.libraryPath, meta.folderName, 'chats');
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(join(dir, `${record.id}.json`), JSON.stringify(record, null, 2));
+  });
+
+  ipcMain.handle('library:createChat', async (_e, videoId: string, title?: string) => {
+    const s = await loadSettings();
+    const meta = await readMeta(s.libraryPath, videoId);
+    const dir = join(s.libraryPath, meta.folderName, 'chats');
+    await fs.mkdir(dir, { recursive: true });
+    const id = `chat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    const now = new Date().toISOString();
+    const record = {
+      id,
+      title: title?.trim() || 'New chat',
+      createdAt: now,
+      lastMessageAt: now,
+      messages: [],
+      systemPromptUsed: ''
+    };
+    await fs.writeFile(join(dir, `${id}.json`), JSON.stringify(record, null, 2));
+    return record;
+  });
+
+  ipcMain.handle('library:deleteChat', async (_e, videoId: string, chatId: string) => {
+    const s = await loadSettings();
+    const meta = await readMeta(s.libraryPath, videoId);
+    await fs.unlink(join(s.libraryPath, meta.folderName, 'chats', `${chatId}.json`)).catch(() => {});
+  });
+
+  ipcMain.handle('library:renameChat', async (_e, videoId: string, chatId: string, title: string) => {
+    const s = await loadSettings();
+    const meta = await readMeta(s.libraryPath, videoId);
+    const path = join(s.libraryPath, meta.folderName, 'chats', `${chatId}.json`);
+    const data = JSON.parse(await fs.readFile(path, 'utf8'));
+    data.title = title.trim() || data.title;
+    await fs.writeFile(path, JSON.stringify(data, null, 2));
+    return data;
+  });
+
   ipcMain.handle('library:videoFileUrl', async (_e, id: string): Promise<string> => {
     const s = await loadSettings();
     const meta = await readMeta(s.libraryPath, id);
-    return `file://${join(s.libraryPath, meta.sourceRelPath)}`;
+    return `vswfile://local${encodeURI(join(s.libraryPath, meta.sourceRelPath))}`;
+  });
+
+  ipcMain.handle('library:getPaths', async (_e, id: string) => {
+    const s = await loadSettings();
+    const meta = await readMeta(s.libraryPath, id);
+    const absSource = join(s.libraryPath, meta.sourceRelPath);
+    const absThumb = join(s.libraryPath, meta.thumbnailRelPath);
+    const absFolder = join(s.libraryPath, meta.folderName);
+    return {
+      videoUrl: `vswfile://local${encodeURI(absSource)}`,
+      thumbnailUrl: `vswfile://local${encodeURI(absThumb)}`,
+      absSourcePath: absSource,
+      absFolder
+    };
+  });
+
+  ipcMain.handle('library:revealInFinder', async (_e, absPath: string) => {
+    const { shell } = await import('electron');
+    shell.showItemInFolder(absPath);
   });
 }

@@ -61,7 +61,7 @@ export async function transcribe(modelPath: string, opts: TranscribeOpts): Promi
     const segments: TranscriptSegment[] = [];
     let i = 0;
     task.on('transcribed', (s) => {
-      segments.push({ start: s.from / 100, end: s.to / 100, text: s.text.trim() });
+      segments.push({ start: s.from / 1000, end: s.to / 1000, text: s.text.trim() });
       opts.onProgress?.(i++, s.text);
     });
     await task.result;

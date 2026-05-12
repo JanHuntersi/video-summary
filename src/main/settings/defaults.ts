@@ -20,6 +20,9 @@ export function defaultSettings(): AppSettings {
     whisper: { defaultModel: 'base', modelsDir: join(userData, 'whisper-models') },
     ollama: { baseUrl: 'http://localhost:11434' },
     gemini: { hasKey: false },
-    prompts: { summary: DEFAULT_SUMMARY_PROMPT, chat: DEFAULT_CHAT_PROMPT }
+    prompts: { summary: DEFAULT_SUMMARY_PROMPT, chat: DEFAULT_CHAT_PROMPT },
+    defaultLlm: { providerId: 'ollama', model: '' },
+    autoTranscribe: true,
+    autoSummarize: false
   };
 }

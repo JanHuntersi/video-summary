@@ -58,7 +58,7 @@ function metaToEntry(m: VideoMeta): IndexEntry {
   return {
     id: m.id, title: m.title, folderName: m.folderName,
     thumbnailRelPath: m.thumbnailRelPath, durationSec: m.durationSec,
-    createdAt: m.createdAt, status: m.status
+    createdAt: m.createdAt, status: m.status, tags: m.tags ?? []
   };
 }
 

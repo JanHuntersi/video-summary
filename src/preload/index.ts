@@ -1,6 +1,6 @@
 // src/preload/index.ts
 import { contextBridge, ipcRenderer } from 'electron';
-import type { AppSettings, ChatHistory, ChatMessage, IndexEntry, LlmProviderId, TranscriptSegment, VideoMeta } from '../shared/types';
+import type { AppSettings, ChatHistory, ChatMessage, ChatRecord, ChatSummary, IndexEntry, LlmProviderId, TranscriptSegment, VideoMeta } from '../shared/types';
 
 const api = {
   settings: {
@@ -24,7 +24,16 @@ const api = {
     writeSummary: (id: string, markdown: string) => ipcRenderer.invoke('library:writeSummary', id, markdown),
     readChat: (id: string): Promise<ChatHistory | null> => ipcRenderer.invoke('library:readChat', id),
     writeChat: (id: string, history: ChatHistory) => ipcRenderer.invoke('library:writeChat', id, history),
-    videoFileUrl: (id: string): Promise<string> => ipcRenderer.invoke('library:videoFileUrl', id)
+    listChats: (videoId: string): Promise<ChatSummary[]> => ipcRenderer.invoke('library:listChats', videoId),
+    readChatById: (videoId: string, chatId: string): Promise<ChatRecord | null> => ipcRenderer.invoke('library:readChatById', videoId, chatId),
+    writeChatById: (videoId: string, record: ChatRecord): Promise<void> => ipcRenderer.invoke('library:writeChatById', videoId, record),
+    createChat: (videoId: string, title?: string): Promise<ChatRecord> => ipcRenderer.invoke('library:createChat', videoId, title),
+    deleteChat: (videoId: string, chatId: string): Promise<void> => ipcRenderer.invoke('library:deleteChat', videoId, chatId),
+    renameChat: (videoId: string, chatId: string, title: string): Promise<ChatRecord> => ipcRenderer.invoke('library:renameChat', videoId, chatId, title),
+    videoFileUrl: (id: string): Promise<string> => ipcRenderer.invoke('library:videoFileUrl', id),
+    getPaths: (id: string): Promise<{ videoUrl: string; thumbnailUrl: string; absSourcePath: string; absFolder: string }> =>
+      ipcRenderer.invoke('library:getPaths', id),
+    revealInFinder: (absPath: string): Promise<void> => ipcRenderer.invoke('library:revealInFinder', absPath)
   },
   transcription: {
     start: (videoId: string, model: string, language: string) =>
