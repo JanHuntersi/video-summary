@@ -1,5 +1,8 @@
 import { app, BrowserWindow } from 'electron';
 import { join } from 'path';
+import { registerAllIpc } from './ipc';
+import { loadSettings } from './settings';
+import { reconcileLibrary } from './library/reconcile';
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -14,5 +17,13 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow);
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.whenReady().then(async () => {
+  registerAllIpc();
+  const s = await loadSettings();
+  await reconcileLibrary(s.libraryPath).catch(() => {});
+  createWindow();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
