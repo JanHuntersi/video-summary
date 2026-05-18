@@ -1,12 +1,13 @@
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { Pencil, Sparkles, ListChecks, Loader2 } from 'lucide-react';
+import { Pencil, Sparkles, ListChecks, Loader2, RotateCcw } from 'lucide-react';
 import { useVideo } from '@renderer/hooks/useVideo';
 import { TranscriptView } from '@renderer/components/TranscriptView';
 import { SummaryView } from '@renderer/components/SummaryView';
 import { ChatPanel } from '@renderer/components/ChatPanel';
-import { TimestampText } from '@renderer/components/TimestampText';
+import { MarkdownWithTimestamps } from '@renderer/components/MarkdownWithTimestamps';
 import { EditDetailsModal } from '@renderer/components/EditDetailsModal';
+import { formatTranscriptForLlm } from '@renderer/lib/transcriptFormat';
 import { useLlmStream } from '@renderer/hooks/useIpcStream';
 import { useSettings } from '@renderer/stores/settings';
 import { toast } from '@renderer/components/Toast';
@@ -17,8 +18,9 @@ type Tab = 'transcript' | 'summary' | 'highlights' | 'info';
 
 const HIGHLIGHTS_PROMPT =
   'Extract the 5–10 most important moments from this video transcript. ' +
-  'Output as a bulleted list with timestamps and 1-line descriptions. ' +
-  'Format: - [mm:ss] description';
+  'Output as a bulleted markdown list. Each item must start with a timestamp in [HH:MM:SS] form ' +
+  '(copied verbatim from the transcript, never reformatted), followed by a 1-line description. ' +
+  'Example:\n- [00:14:31] Speaker introduces the data sync flow.';
 
 export default function VideoDetail() {
   const { id } = useParams<{ id: string }>();
@@ -222,7 +224,7 @@ export default function VideoDetail() {
   const regenerate = async () => {
     if (!transcript || !settings) return;
     setRegenBuf('');
-    const transcriptText = transcript.map(s => `[${Math.floor(s.start)}s] ${s.text}`).join('\n');
+    const transcriptText = formatTranscriptForLlm(transcript);
     try {
       const models = await window.api.llm.listModels('ollama');
       if (!models.length) {
@@ -248,7 +250,7 @@ export default function VideoDetail() {
     setTab('summary');
     setQuickBuf('');
     setSummary('');
-    const transcriptText = transcript.map(s => `[${Math.floor(s.start)}s] ${s.text}`).join('\n');
+    const transcriptText = formatTranscriptForLlm(transcript);
     try {
       const reqId = await window.api.llm.summarize({
         providerId: settings.defaultLlm.providerId,
@@ -271,11 +273,7 @@ export default function VideoDetail() {
     setTab('highlights');
     setHighlightsBuf('');
     setHighlights('');
-    const transcriptText = transcript.map(s => {
-      const m = Math.floor(s.start / 60);
-      const ss = Math.floor(s.start % 60).toString().padStart(2, '0');
-      return `[${m}:${ss}] ${s.text}`;
-    }).join('\n');
+    const transcriptText = formatTranscriptForLlm(transcript);
     try {
       const reqId = await window.api.llm.summarize({
         providerId: settings.defaultLlm.providerId,
@@ -286,6 +284,19 @@ export default function VideoDetail() {
       setHighlightsReq(reqId);
     } catch (e) {
       toast.error(`Highlights failed: ${(e as Error).message}`);
+    }
+  };
+
+  const reTranscribe = async () => {
+    if (!meta || !settings) return;
+    if (!confirm('Re-run transcription? This will overwrite the existing transcript.')) return;
+    try {
+      const model = meta.transcription?.model ?? settings.whisper.defaultModel;
+      const language = meta.transcription?.language ?? 'auto';
+      await window.api.transcription.start(meta.id, model, language);
+      toast.success('Re-transcription queued');
+    } catch (e) {
+      toast.error(`Could not start: ${(e as Error).message}`);
     }
   };
 
@@ -332,6 +343,15 @@ export default function VideoDetail() {
           <Button variant="outline" onClick={generateHighlights} disabled={!transcript || !!highlightsReq} className="gap-1.5">
             {highlightsReq ? <Loader2 size={14} className="animate-spin" /> : <ListChecks size={14} />}
             Highlight key moments
+          </Button>
+          <Button
+            variant="outline"
+            onClick={reTranscribe}
+            disabled={meta.status === 'transcribing'}
+            title="Re-run whisper on the current source file (overwrites transcript)"
+            className="gap-1.5"
+          >
+            <RotateCcw size={14} /> Re-transcribe
           </Button>
           <Button variant="outline" onClick={() => setEditing(true)} className="gap-1.5">
             <Pencil size={14} /> Edit
@@ -381,9 +401,7 @@ export default function VideoDetail() {
                   </div>
                 )}
                 {displayedHighlights && (
-                  <pre className="whitespace-pre-wrap text-sm leading-relaxed">
-                    <TimestampText text={displayedHighlights} onSeek={onSeek} />
-                  </pre>
+                  <MarkdownWithTimestamps text={displayedHighlights} onSeek={onSeek} />
                 )}
                 {highlightsReq && (
                   <div className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">

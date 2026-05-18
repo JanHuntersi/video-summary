@@ -6,11 +6,13 @@ import type { AppSettings } from '@shared/types';
 
 export const DEFAULT_SUMMARY_PROMPT =
   'You are a helpful assistant that produces a concise structured summary of a video transcript. ' +
-  'Include: (1) one-paragraph TL;DR, (2) key bullet points, (3) chapters with timestamps.';
+  'Include: (1) one-paragraph TL;DR, (2) key bullet points, (3) chapters with timestamps. ' +
+  'When citing moments, copy the timestamp verbatim from the transcript in [HH:MM:SS] form (e.g. [00:14:31]).';
 
 export const DEFAULT_CHAT_PROMPT =
   'You are a helpful assistant answering questions about a specific video. ' +
-  'The transcript is provided as context. Cite timestamps (mm:ss) when relevant.';
+  'The transcript is provided as context with each line prefixed by a timestamp in [HH:MM:SS] form. ' +
+  'When citing moments, copy that timestamp verbatim (e.g. [00:14:31]) — never reformat or invent timestamps.';
 
 export function defaultSettings(): AppSettings {
   const userData = app?.getPath ? app.getPath('userData') : join(homedir(), '.video-summary');

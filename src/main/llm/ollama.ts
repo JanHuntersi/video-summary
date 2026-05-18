@@ -8,8 +8,19 @@ export class OllamaProvider implements LlmProvider {
   async listModels(): Promise<string[]> {
     const r = await fetch(`${this.baseUrl}/api/tags`);
     if (!r.ok) throw new Error(`Ollama /api/tags ${r.status}`);
-    const data = await r.json() as { models?: { name: string }[] };
-    return (data.models ?? []).map(m => m.name);
+    const data = await r.json() as {
+      models?: { name: string; details?: { family?: string; families?: string[] } }[]
+    };
+    // Drop embedding-only models — they 400 on /api/chat. Filter by name substring and known
+    // embedding families (bert / nomic-bert), since /api/tags doesn't expose a "supports chat" flag.
+    const isEmbedding = (m: { name: string; details?: { family?: string; families?: string[] } }) => {
+      if (/embed/i.test(m.name)) return true;
+      const fam = m.details?.family?.toLowerCase() ?? '';
+      const families = (m.details?.families ?? []).map(f => f.toLowerCase());
+      const isBert = (s: string) => s === 'bert' || s.endsWith('-bert');
+      return isBert(fam) || families.some(isBert);
+    };
+    return (data.models ?? []).filter(m => !isEmbedding(m)).map(m => m.name);
   }
 
   async testConnection(): Promise<{ ok: boolean; detail: string }> {
@@ -54,7 +65,16 @@ export class OllamaProvider implements LlmProvider {
       body: JSON.stringify({ model: args.model, messages: args.messages, stream: true }),
       signal: args.signal
     });
-    if (!r.ok || !r.body) throw new Error(`Ollama /api/chat ${r.status}`);
+    if (!r.ok || !r.body) {
+      let detail = `HTTP ${r.status}`;
+      try {
+        const body = await r.text();
+        const parsed = JSON.parse(body) as { error?: string };
+        if (parsed.error) detail = parsed.error;
+        else if (body.trim()) detail = `${detail}: ${body.trim().slice(0, 200)}`;
+      } catch { /* keep status-only detail */ }
+      throw new Error(`Ollama /api/chat: ${detail}`);
+    }
     const reader = r.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';

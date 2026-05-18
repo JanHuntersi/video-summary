@@ -23,6 +23,20 @@ describe('OllamaProvider', () => {
     expect(await p.listModels()).toEqual(['llama3:8b', 'mistral']);
   });
 
+  it('filters out embedding-only models', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () =>
+      new Response(JSON.stringify({
+        models: [
+          { name: 'llama3:latest', details: { family: 'llama', families: ['llama'] } },
+          { name: 'nomic-embed-text:latest', details: { family: 'nomic-bert', families: ['nomic-bert'] } },
+          { name: 'all-minilm', details: { family: 'bert', families: ['bert'] } },
+          { name: 'mistral' }
+        ]
+      }))));
+    const p = new OllamaProvider('http://x');
+    expect(await p.listModels()).toEqual(['llama3:latest', 'mistral']);
+  });
+
   it('streams chat tokens', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => makeStreamResponse([
       JSON.stringify({ message: { content: 'Hel' } }),

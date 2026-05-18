@@ -4,7 +4,8 @@ import { Button } from './ui/button';
 import { useSettings } from '@renderer/stores/settings';
 import { useLlmStream } from '@renderer/hooks/useIpcStream';
 import { toast } from './Toast';
-import { TimestampText } from './TimestampText';
+import { MarkdownWithTimestamps } from './MarkdownWithTimestamps';
+import { formatTranscriptForLlm } from '@renderer/lib/transcriptFormat';
 import type { ChatMessage, ChatRecord, ChatSummary, LlmProviderId, TranscriptSegment } from '@shared/types';
 
 interface Props {
@@ -124,7 +125,7 @@ export function ChatPanel({ videoId, transcript, summary, onSeek }: Props) {
     streamBufRef.current = '';
     setStreamBuf('');
     setStreaming(true);
-    const transcriptText = transcript.map(s => `[${Math.floor(s.start)}s] ${s.text}`).join('\n');
+    const transcriptText = formatTranscriptForLlm(transcript);
     try {
       const reqId = await window.api.llm.chat({
         providerId, model, history, userMessage: userMsg.content,
@@ -230,18 +231,22 @@ export function ChatPanel({ videoId, transcript, summary, onSeek }: Props) {
         )}
         {messagesToShow.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
-            <div className={`inline-block max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${m.role === 'user' ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}>
-              {m.role === 'assistant'
-                ? <TimestampText text={m.content} onSeek={onSeek} />
-                : m.content}
-            </div>
+            {m.role === 'user' ? (
+              <div className="inline-block max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap bg-slate-900 text-white">
+                {m.content}
+              </div>
+            ) : (
+              <div className="inline-block max-w-[85%] px-3 py-2 rounded-lg text-sm bg-slate-100">
+                <MarkdownWithTimestamps text={m.content} onSeek={onSeek} className="prose prose-sm max-w-none" />
+              </div>
+            )}
           </div>
         ))}
         {streaming && (
           <div>
-            <div className="inline-block max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap bg-slate-100">
+            <div className="inline-block max-w-[85%] px-3 py-2 rounded-lg text-sm bg-slate-100">
               {streamBuf
-                ? <TimestampText text={streamBuf} onSeek={onSeek} />
+                ? <MarkdownWithTimestamps text={streamBuf} onSeek={onSeek} className="prose prose-sm max-w-none" />
                 : <span className="text-slate-400">…</span>}
             </div>
           </div>
