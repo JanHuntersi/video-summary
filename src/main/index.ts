@@ -31,7 +31,11 @@ app.whenReady().then(async () => {
       const absPath = decodeURIComponent(url.pathname);
       const stat = await fs.stat(absPath);
       const size = stat.size;
-      const mime = (lookupMime(absPath) as string) || 'application/octet-stream';
+      let mime = (lookupMime(absPath) as string) || 'application/octet-stream';
+      // Chromium refuses to play .mov files labelled video/quicktime even when they
+      // contain standard h264/aac (most ReplayKit / iOS / screen-recording captures).
+      // The mov container is binary-compatible with mp4, so re-label and Chromium plays it.
+      if (mime === 'video/quicktime') mime = 'video/mp4';
       const range = req.headers.get('range');
       if (range) {
         const m = /bytes=(\d+)-(\d*)/.exec(range);

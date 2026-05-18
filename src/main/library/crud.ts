@@ -3,6 +3,7 @@ import { join, extname, basename } from 'path';
 import type { IndexEntry, VideoMeta } from '@shared/types';
 import { slugify, generateId, folderName } from './paths';
 import { upsertEntry, removeEntry, readIndex } from './index-store';
+import { remuxToMp4 } from '@main/media/ffmpeg';
 
 interface ImportOpts {
   libraryPath: string;
@@ -26,8 +27,16 @@ export async function importVideo(opts: ImportOpts): Promise<VideoMeta> {
   const absFolder = join(opts.libraryPath, folder);
   await fs.mkdir(absFolder, { recursive: true });
 
-  const destVideo = join(absFolder, `source${ext}`);
-  if (opts.importMode === 'move') {
+  // .mov files (especially from Apple ReplayKit / iOS / screen recordings) often have
+  // edit lists that produce negative timestamps, which Chromium's HTML5 video element
+  // rejects with DEMUXER_ERROR_COULD_NOT_PARSE. Stream-copy remux to mp4 fixes it without
+  // re-encoding (seconds even for multi-GB files).
+  const destExt = ext === '.mov' ? '.mp4' : ext;
+  const destVideo = join(absFolder, `source${destExt}`);
+  if (ext === '.mov') {
+    await remuxToMp4(opts.sourceAbsPath, destVideo);
+    if (opts.importMode === 'move') await fs.unlink(opts.sourceAbsPath).catch(() => {});
+  } else if (opts.importMode === 'move') {
     await fs.rename(opts.sourceAbsPath, destVideo).catch(async err => {
       if ((err as NodeJS.ErrnoException).code === 'EXDEV') {
         await fs.copyFile(opts.sourceAbsPath, destVideo);
@@ -43,7 +52,7 @@ export async function importVideo(opts: ImportOpts): Promise<VideoMeta> {
   const meta: VideoMeta = {
     id, title: opts.title, slug, folderName: folder,
     originalFilename: basename(opts.sourceAbsPath),
-    sourceRelPath: `${folder}/source${ext}`,
+    sourceRelPath: `${folder}/source${destExt}`,
     thumbnailRelPath: `${folder}/thumbnail.jpg`,
     durationSec: opts.durationSec,
     createdAt: now.toISOString(),

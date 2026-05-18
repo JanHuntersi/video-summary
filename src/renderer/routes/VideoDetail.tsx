@@ -347,6 +347,15 @@ export default function VideoDetail() {
             controls
             onLoadedMetadata={() => setMetaReady(true)}
             onTimeUpdate={e => setCurrentTime((e.target as HTMLVideoElement).currentTime)}
+            onError={e => {
+              const err = (e.target as HTMLVideoElement).error;
+              const codeMap: Record<number, string> = {
+                1: 'aborted', 2: 'network', 3: 'decode', 4: 'src not supported'
+              };
+              const detail = err ? `MediaError code ${err.code} (${codeMap[err.code] ?? '?'}): ${err.message || 'no message'}` : 'unknown';
+              console.error('[video] playback error:', detail, 'src=', videoUrl);
+              toast.error(`Cannot play video — ${detail}`);
+            }}
             className="w-full bg-black aspect-video"
           />
           <div className="flex border-b text-sm">

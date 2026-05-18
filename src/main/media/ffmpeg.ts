@@ -46,3 +46,24 @@ export async function extractThumbnail(videoPath: string, durationSec: number): 
   await fs.unlink(out).catch(() => {});
   return data;
 }
+
+// Stream-copy remux to mp4. Strips edit lists and rewrites timestamps so Chromium's
+// FFmpeg demuxer accepts the file (Apple ReplayKit / iOS captures often produce .mov
+// files with negative timestamps that Chromium rejects with DEMUXER_ERROR_COULD_NOT_PARSE).
+// No re-encode, so it's fast and lossless.
+export async function remuxToMp4(inputPath: string, outputPath: string): Promise<void> {
+  if (!ffmpegPath) throw new Error('ffmpeg binary not found');
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(ffmpegPath!, [
+      '-y', '-i', inputPath,
+      '-c', 'copy',
+      '-movflags', '+faststart',
+      '-avoid_negative_ts', 'make_zero',
+      outputPath
+    ]);
+    let stderr = '';
+    child.stderr.on('data', (b: Buffer) => { stderr += b.toString(); });
+    child.on('close', code => code === 0 ? resolve() : reject(new Error(`ffmpeg remux exit ${code}: ${stderr.slice(-500)}`)));
+    child.on('error', reject);
+  });
+}
