@@ -24,14 +24,19 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Setup Python 3.11
+        # node-gyp needs distutils, removed in Python 3.12+; pin to last version that has it
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install Linux native build deps
-        # keytar links against libsecret on Linux; smart-whisper / electron also need build tools
+        # keytar links against libsecret on Linux
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libsecret-1-dev \
-            build-essential \
-            python3
+            build-essential
 
       - name: Install dependencies
         run: npm ci
