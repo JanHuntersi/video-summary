@@ -1,8 +1,12 @@
 import { spawn } from 'child_process';
-import ffmpegPath from 'ffmpeg-static';
+import ffmpegStatic from 'ffmpeg-static';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+
+// In packaged mode ffmpeg-static returns a path inside app.asar — rewrite to the
+// unpacked directory so child_process.spawn can execute the actual binary.
+const ffmpegPath = ffmpegStatic ? ffmpegStatic.replace('app.asar', 'app.asar.unpacked') : null;
 
 export function buildProbeArgs(input: string): string[] {
   return ['-v', 'error', '-show_entries', 'format=duration',

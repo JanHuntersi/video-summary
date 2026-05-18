@@ -16,14 +16,37 @@
     "appId": "com.local.videosummary",
     "productName": "VideoSummary",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "out/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "node_modules/smart-whisper/**/*",
+      "node_modules/ffmpeg-static/**/*",
+      "node_modules/keytar/**/*"
+    ],
     "mac": {
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "target": [
+        { "target": "dmg", "arch": [ "arm64", "x64" ] },
+        { "target": "zip", "arch": [ "arm64", "x64" ] }
+      ],
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "writeUpdateInfo": false
+    },
+    "win": {
+      "target": [ "nsis" ]
+    },
+    "linux": {
+      "target": [ "AppImage" ],
+      "category": "AudioVideo"
     }
   },
   "dependencies": {

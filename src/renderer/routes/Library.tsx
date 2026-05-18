@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useLibrary } from '@renderer/stores/library';
 import { useSettings } from '@renderer/stores/settings';
 import { VideoCard } from '@renderer/components/VideoCard';
 import { Button } from '@renderer/components/ui/button';
+import { toast } from '@renderer/components/Toast';
 import type { VideoStatus } from '@shared/types';
 import { cn } from '@renderer/lib/cn';
 
@@ -25,6 +26,53 @@ export default function Library() {
   const [globalResults, setGlobalResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const [dragOver, setDragOver] = useState(false);
+  const [dropImporting, setDropImporting] = useState(false);
+
+  // Global shortcuts: Cmd/Ctrl+K focus search, Cmd/Ctrl+N new video
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key.toLowerCase() === 'k') { e.preventDefault(); searchInputRef.current?.focus(); }
+      else if (e.key.toLowerCase() === 'n') { e.preventDefault(); navigate('/new'); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [navigate]);
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files);
+    const videoFiles = files
+      .filter(f => /\.(mp4|mov|mkv|webm)$/i.test(f.name))
+      .map(f => (f as File & { path?: string }).path)
+      .filter((p): p is string => !!p);
+    if (videoFiles.length === 0) {
+      toast.error('Drop a .mp4, .mov, .mkv, or .webm file');
+      return;
+    }
+    setDropImporting(true);
+    try {
+      for (const absPath of videoFiles) {
+        const title = absPath.split('/').pop()!.replace(/\.[^.]+$/, '');
+        try {
+          const meta = await window.api.library.import(absPath, title);
+          toast.success(`Imported: ${meta.title}`);
+          if (settings?.autoTranscribe) {
+            await window.api.transcription.start(meta.id, settings.whisper.defaultModel, 'auto').catch(() => {});
+          }
+        } catch (err) {
+          toast.error(`Import failed for ${title}: ${(err as Error).message}`);
+        }
+      }
+      await refresh();
+    } finally {
+      setDropImporting(false);
+    }
+  };
 
   useEffect(() => {
     void loadSettings().then(refresh);
@@ -77,15 +125,36 @@ export default function Library() {
   }, [videos]);
 
   return (
-    <div className="p-6">
+    <div
+      className={cn('p-6 relative min-h-full', dragOver && 'bg-slate-100')}
+      onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+      onDragEnter={e => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={e => {
+        // Only unset if leaving the container entirely
+        if (e.currentTarget === e.target) setDragOver(false);
+      }}
+      onDrop={handleDrop}
+    >
+      {dragOver && (
+        <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center bg-slate-900/30">
+          <div className="bg-white border-4 border-dashed border-slate-900 rounded-xl px-8 py-6 text-lg font-semibold">
+            Drop video files to import
+          </div>
+        </div>
+      )}
+      {dropImporting && (
+        <div className="fixed top-4 right-4 z-40 bg-slate-900 text-white text-sm px-3 py-2 rounded shadow">
+          Importing dropped files…
+        </div>
+      )}
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold">Library</h1>
         <Link to="/new"><Button>+ New Video</Button></Link>
       </div>
 
       <div className="flex flex-wrap gap-2 mb-3 items-center">
-        <input value={q} onChange={e => setQ(e.target.value)}
-               placeholder="Search title or transcripts…"
+        <input ref={searchInputRef} value={q} onChange={e => setQ(e.target.value)}
+               placeholder="Search title or transcripts… (⌘K)"
                className="border rounded px-3 py-2 text-sm w-72" />
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as VideoStatus | 'all')}
                 className="border rounded px-2 py-2 text-sm">

@@ -4,15 +4,17 @@ import { Button } from './ui/button';
 import { useSettings } from '@renderer/stores/settings';
 import { useLlmStream } from '@renderer/hooks/useIpcStream';
 import { toast } from './Toast';
+import { TimestampText } from './TimestampText';
 import type { ChatMessage, ChatRecord, ChatSummary, LlmProviderId, TranscriptSegment } from '@shared/types';
 
 interface Props {
   videoId: string;
   transcript: TranscriptSegment[] | null;
   summary: string | null;
+  onSeek?: (sec: number) => void;
 }
 
-export function ChatPanel({ videoId, transcript, summary }: Props) {
+export function ChatPanel({ videoId, transcript, summary, onSeek }: Props) {
   const { settings } = useSettings();
   const [providerId, setProviderId] = useState<LlmProviderId>('ollama');
   const [models, setModels] = useState<string[]>([]);
@@ -229,14 +231,18 @@ export function ChatPanel({ videoId, transcript, summary }: Props) {
         {messagesToShow.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
             <div className={`inline-block max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${m.role === 'user' ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}>
-              {m.content}
+              {m.role === 'assistant'
+                ? <TimestampText text={m.content} onSeek={onSeek} />
+                : m.content}
             </div>
           </div>
         ))}
         {streaming && (
           <div>
             <div className="inline-block max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap bg-slate-100">
-              {streamBuf || <span className="text-slate-400">…</span>}
+              {streamBuf
+                ? <TimestampText text={streamBuf} onSeek={onSeek} />
+                : <span className="text-slate-400">…</span>}
             </div>
           </div>
         )}

@@ -5,6 +5,7 @@ import { useVideo } from '@renderer/hooks/useVideo';
 import { TranscriptView } from '@renderer/components/TranscriptView';
 import { SummaryView } from '@renderer/components/SummaryView';
 import { ChatPanel } from '@renderer/components/ChatPanel';
+import { TimestampText } from '@renderer/components/TimestampText';
 import { EditDetailsModal } from '@renderer/components/EditDetailsModal';
 import { useLlmStream } from '@renderer/hooks/useIpcStream';
 import { useSettings } from '@renderer/stores/settings';
@@ -163,6 +164,52 @@ export default function VideoDetail() {
     }
   });
 
+  // Keyboard shortcuts (when not typing in an input/textarea)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const v = videoRef.current;
+      if (!v) return;
+      const segs = transcript ?? [];
+      const findActiveIdx = () => {
+        for (let i = 0; i < segs.length; i++) {
+          if (v.currentTime >= segs[i].start && v.currentTime < segs[i].end) return i;
+        }
+        let last = -1;
+        for (let i = 0; i < segs.length; i++) {
+          if (segs[i].start <= v.currentTime) last = i; else break;
+        }
+        return last;
+      };
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (v.paused) void v.play().catch(() => {}); else v.pause();
+      } else if (e.key.toLowerCase() === 'j') {
+        e.preventDefault();
+        v.currentTime = Math.max(0, v.currentTime - 5);
+      } else if (e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        v.currentTime = Math.min((v.duration || Infinity), v.currentTime + 5);
+      } else if (e.key === 'ArrowLeft' && segs.length) {
+        e.preventDefault();
+        const idx = findActiveIdx();
+        if (idx > 0) { v.currentTime = segs[idx - 1].start; void v.play().catch(() => {}); }
+      } else if (e.key === 'ArrowRight' && segs.length) {
+        e.preventDefault();
+        const idx = findActiveIdx();
+        if (idx >= 0 && idx + 1 < segs.length) { v.currentTime = segs[idx + 1].start; void v.play().catch(() => {}); }
+      } else if (e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        setTab('transcript');
+        // active row will be auto-scrolled by TranscriptView if following; else clicking Jump button required
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [transcript]);
+
   if (!meta) return <div className="p-4">Loading…</div>;
 
   const onSeek = (sec: number) => {
@@ -316,7 +363,7 @@ export default function VideoDetail() {
           <div className="flex-1 overflow-hidden">
             {tab === 'transcript' && transcript && <TranscriptView segments={transcript} currentTime={currentTime} onSeek={onSeek} />}
             {tab === 'transcript' && !transcript && <div className="p-3 text-sm text-slate-500">No transcript.</div>}
-            {tab === 'summary' && <SummaryView markdown={regenReq ? regenBuf : summary} onRegenerate={regenerate} />}
+            {tab === 'summary' && <SummaryView markdown={regenReq ? regenBuf : summary} onRegenerate={regenerate} onSeek={onSeek} />}
             {tab === 'highlights' && (
               <div className="p-4 overflow-auto h-full">
                 {!displayedHighlights && !highlightsReq && (
@@ -325,7 +372,9 @@ export default function VideoDetail() {
                   </div>
                 )}
                 {displayedHighlights && (
-                  <pre className="whitespace-pre-wrap text-sm leading-relaxed">{displayedHighlights}</pre>
+                  <pre className="whitespace-pre-wrap text-sm leading-relaxed">
+                    <TimestampText text={displayedHighlights} onSeek={onSeek} />
+                  </pre>
                 )}
                 {highlightsReq && (
                   <div className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
@@ -338,7 +387,7 @@ export default function VideoDetail() {
           </div>
         </div>
         <div className="flex-1">
-          <ChatPanel videoId={meta.id} transcript={transcript} summary={summary} />
+          <ChatPanel videoId={meta.id} transcript={transcript} summary={summary} onSeek={onSeek} />
         </div>
       </div>
 
