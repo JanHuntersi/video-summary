@@ -1,5 +1,36 @@
+# Dependencies
 node_modules/
+
+# Build output
 out/
 dist/
-.DS_Store
+*.tsbuildinfo
+
+# Environment & secrets (defensive — this project uses OS keychain, but guard anyway)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets.json
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+coverage/
+.nyc_output/
