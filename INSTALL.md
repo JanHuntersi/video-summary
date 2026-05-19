@@ -25,20 +25,34 @@ Navodila za namestitev predpakirane aplikacije (`.dmg`) na macOS.
 
 ## 3. Prvi zagon (Gatekeeper)
 
-App **ni code-signed**, zato te macOS pri prvem zagonu opozori. Dva načina:
+App **ni code-signed**, zato ga macOS pri prvem zagonu blokira. Na novejših macOS verzijah (Sonoma 14+) namesto navadnega opozorila dobiš misleading sporočilo:
 
-**Način A — desni klik (priporočeno):**
+> *"Datoteka »VideoSummary« je poškodovana in je ni mogoče odpreti. Premaknite jo v koš."*
+
+App **ni poškodovan** — macOS samo skriva pravi razlog ("unsigned developer"). Tri rešitve, od najbolj zanesljive do najmanj:
+
+**Način A — `xattr` v terminalu (priporočeno, deluje vedno):**
+
+V terminalu (Applications → Utilities → Terminal):
+
+```bash
+xattr -cr /Applications/VideoSummary.app
+```
+
+To zbriše `com.apple.quarantine` atribut, ki ga je macOS dodal ob downloadu. Po tem dvoklik na app normalno deluje. Naredi enkrat, ne rabiš ponavljat.
+
+**Način B — desni klik (samo na starejših macOS, do ~Ventura):**
 1. V Finderju pojdi v `Applications`.
 2. **Desni klik** na `VideoSummary.app` → **Open**.
 3. V dialogu klikni **Open**.
 
-**Način B — System Settings (če Način A ne deluje):**
+**Način C — System Settings (zadnja varianta):**
 1. Dvoklikni `VideoSummary.app` — pojavi se napaka.
 2. Pojdi v **System Settings → Privacy & Security**.
 3. Pomakni se navzdol — pojavi se sporočilo "VideoSummary was blocked…" + gumb **Open Anyway**. Klikni ga.
 4. Potrdi z **Open**.
 
-Po prvem zagonu lahko app odpiraš z navadnim dvoklikom.
+Po prvem uspešnem zagonu (kateri koli način) lahko app odpiraš z navadnim dvoklikom.
 
 ---
 
@@ -147,8 +161,8 @@ Ko izide nova verzija:
 
 ## Pogoste težave
 
-**"VideoSummary can't be opened because Apple cannot check it for malicious software"**
-→ To je Gatekeeper. Glej korak 3 zgoraj.
+**"Datoteka »VideoSummary« je poškodovana in je ni mogoče odpreti"** (Sonoma+) ali **"VideoSummary can't be opened because Apple cannot check it for malicious software"** (starejši macOS)
+→ Gatekeeper blokira nepodpisan app. Zaženi v terminalu: `xattr -cr /Applications/VideoSummary.app`. Glej korak 3 zgoraj za vse podrobnosti.
 
 **"Ollama unreachable"**
 → Preveri da je Ollama instaliran in zagnan (`ollama list` v terminalu mora delovati). Default URL je `http://localhost:11434`.

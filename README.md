@@ -37,7 +37,15 @@ The app builds for the following targets (see `package.json` → `build`):
 
 > **Tested on:** macOS (Apple Silicon). Windows and Linux builds are configured but have **not been smoke-tested** by the author yet — please report issues if you try them.
 
-The app is **not code-signed** on any platform. macOS users will see a Gatekeeper warning on first launch (see `INSTALL.md` for the workaround).
+The app is **not code-signed** on any platform.
+
+**macOS Gatekeeper bypass (required on first launch).** Because the app is unsigned, macOS quarantines it and shows *"VideoSummary is damaged and can't be opened"* on the first launch. This is misleading — the app is fine. After moving it to `/Applications`, run **once** in Terminal:
+
+```bash
+xattr -cr /Applications/VideoSummary.app
+```
+
+This clears the quarantine attribute that macOS attaches to downloaded files. Then double-click to open normally. See `INSTALL.md` for full step-by-step instructions and alternative methods.
 
 ---
 
