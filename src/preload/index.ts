@@ -104,6 +104,21 @@ const api = {
       ipcRenderer.on('llm:chunk', listener);
       return () => ipcRenderer.removeListener('llm:chunk', listener);
     }
+  },
+  system: {
+    getVersion: (): Promise<string> => ipcRenderer.invoke('system:getVersion'),
+    checkLatest: (force?: boolean): Promise<{
+      current: string; latest: string | null; isNewer: boolean;
+      htmlUrl: string | null; publishedAt: string | null; error?: string;
+    }> => ipcRenderer.invoke('system:checkLatest', force),
+    downloadUpdate: (): Promise<{ path: string; filename: string }> => ipcRenderer.invoke('system:downloadUpdate'),
+    onDownloadProgress: (fn: (p: { bytesDownloaded: number; bytesTotal: number }) => void) => {
+      const listener = (_: unknown, p: any) => fn(p);
+      ipcRenderer.on('system:downloadProgress', listener);
+      return () => ipcRenderer.removeListener('system:downloadProgress', listener);
+    },
+    revealInFinder: (absPath: string): Promise<void> => ipcRenderer.invoke('system:revealInFinder', absPath),
+    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:openExternal', url)
   }
 };
 
