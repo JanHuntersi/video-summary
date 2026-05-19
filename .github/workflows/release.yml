@@ -26,16 +26,12 @@ jobs:
       matrix:
         include:
           # macOS arm64 (Apple Silicon) — runs on arm64 host so native rebuilds match.
+          # Intel macs run this via Rosetta 2; we don't ship a separate x64 DMG anymore
+          # because the macos-13 (Intel) runners on GitHub free tier have prohibitive
+          # queue times (15-60+ minutes). Build from source for Intel-native if needed.
           - id: macos-arm64
             os: macos-latest
             builder-flags: --mac --arm64
-            artifact-glob: |
-              dist/*.dmg
-              dist/*.zip
-          # macOS x64 (Intel) — runs on Intel host (macos-13).
-          - id: macos-x64
-            os: macos-13
-            builder-flags: --mac --x64
             artifact-glob: |
               dist/*.dmg
               dist/*.zip

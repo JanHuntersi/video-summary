@@ -31,9 +31,11 @@ The app builds for the following targets (see `package.json` → `build`):
 
 | Platform | Architecture | Format |
 |---|---|---|
-| macOS | Apple Silicon (arm64) + Intel (x64) | `.dmg`, `.zip` |
+| macOS | Apple Silicon (arm64) | `.dmg`, `.zip` |
 | Windows | x64 | NSIS installer |
 | Linux | x64 | AppImage |
+
+> Intel-native macOS binaries aren't shipped from CI (GitHub free-tier Intel runners have prohibitive queue times). Intel Macs can run the arm64 build via Rosetta 2, or build from source — see `Development` below.
 
 > **Tested on:** macOS (Apple Silicon). Windows and Linux builds are configured but have **not been smoke-tested** by the author yet — please report issues if you try them.
 

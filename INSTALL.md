@@ -9,9 +9,9 @@ Step-by-step guide for installing the prebuilt macOS app (`.dmg`).
 | Your Mac | File |
 |---|---|
 | Apple Silicon (M1 / M2 / M3 / M4) | `VideoSummary-<version>-arm64.dmg` |
-| Intel | `VideoSummary-<version>.dmg` |
+| Intel | runs the arm64 build via Rosetta 2 (or build from source) |
 
-> Not sure? Apple menu → **About This Mac**. If it says "Chip: Apple Mxxx" you're on Apple Silicon, otherwise Intel.
+> Not sure? Apple menu → **About This Mac**. If it says "Chip: Apple Mxxx" you're on Apple Silicon, otherwise Intel. Intel Macs: download the same `-arm64.dmg`; macOS will offer to install Rosetta 2 on first launch.
 
 Downloads live on the [Releases page](https://github.com/JanHuntersi/video-summary/releases).
 
