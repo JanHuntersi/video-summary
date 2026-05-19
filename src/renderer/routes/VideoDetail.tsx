@@ -1,6 +1,6 @@
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { Pencil, Sparkles, ListChecks, Loader2, RotateCcw } from 'lucide-react';
+import { Pencil, Sparkles, ListChecks, Loader2, RotateCcw, Captions } from 'lucide-react';
 import { useVideo } from '@renderer/hooks/useVideo';
 import { TranscriptView } from '@renderer/components/TranscriptView';
 import { SummaryView } from '@renderer/components/SummaryView';
@@ -8,6 +8,7 @@ import { ChatPanel } from '@renderer/components/ChatPanel';
 import { MarkdownWithTimestamps } from '@renderer/components/MarkdownWithTimestamps';
 import { NotesView } from '@renderer/components/NotesView';
 import { EditDetailsModal } from '@renderer/components/EditDetailsModal';
+import { TranscribeDialog, type WhisperModel } from '@renderer/components/TranscribeDialog';
 import { formatTranscriptForLlm } from '@renderer/lib/transcriptFormat';
 import { useLlmStream } from '@renderer/hooks/useIpcStream';
 import { useSettings } from '@renderer/stores/settings';
@@ -36,6 +37,7 @@ export default function VideoDetail() {
   const [regenReq, setRegenReq] = useState<string | null>(null);
   const [paths, setPaths] = useState<{ absSourcePath: string; absFolder: string } | null>(null);
   const [editing, setEditing] = useState(false);
+  const [transcribeDialog, setTranscribeDialog] = useState<null | 'transcribe' | 're-transcribe'>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [metaReady, setMetaReady] = useState(false);
   const seekAppliedRef = useRef(false);
@@ -288,14 +290,12 @@ export default function VideoDetail() {
     }
   };
 
-  const reTranscribe = async () => {
-    if (!meta || !settings) return;
-    if (!confirm('Re-run transcription? This will overwrite the existing transcript.')) return;
+  const startTranscription = async (args: { model: WhisperModel; language: string }) => {
+    if (!meta) return;
+    setTranscribeDialog(null);
     try {
-      const model = meta.transcription?.model ?? settings.whisper.defaultModel;
-      const language = meta.transcription?.language ?? 'auto';
-      await window.api.transcription.start(meta.id, model, language);
-      toast.success('Re-transcription queued');
+      await window.api.transcription.start(meta.id, args.model, args.language);
+      toast.success(transcribeDialog === 're-transcribe' ? 'Re-transcription queued' : 'Transcription queued');
     } catch (e) {
       toast.error(`Could not start: ${(e as Error).message}`);
     }
@@ -368,14 +368,27 @@ export default function VideoDetail() {
             );
           })()}
           {(() => {
-            const reason = meta.status === 'transcribing'
+            // Show a primary 'Transcribe' button when no transcript exists yet,
+            // otherwise show 'Re-transcribe'. Both open the dialog with model+language pickers.
+            const isTranscribing = meta.status === 'transcribing';
+            const hasTranscript = !!transcript;
+            const mode = hasTranscript ? 're-transcribe' : 'transcribe';
+            const reason = isTranscribing
               ? 'Transcription already running'
-              : 'Re-run whisper on the current source file (overwrites transcript)';
-            const disabled = meta.status === 'transcribing';
+              : hasTranscript
+                ? 'Re-run whisper on the current source file (overwrites transcript)'
+                : 'Run Whisper on this video — pick language and model';
             return (
               <span title={reason}>
-                <Button variant="outline" onClick={reTranscribe} disabled={disabled} title={reason} className="gap-1.5">
-                  <RotateCcw size={14} /> Re-transcribe
+                <Button
+                  variant={hasTranscript ? 'outline' : 'default'}
+                  onClick={() => setTranscribeDialog(mode)}
+                  disabled={isTranscribing}
+                  title={reason}
+                  className="gap-1.5"
+                >
+                  {hasTranscript ? <RotateCcw size={14} /> : <Captions size={14} />}
+                  {hasTranscript ? 'Re-transcribe' : 'Transcribe'}
                 </Button>
               </span>
             );
@@ -447,6 +460,15 @@ export default function VideoDetail() {
       </div>
 
       {editing && <EditDetailsModal meta={meta} onClose={() => setEditing(false)} onSave={saveMeta} onDelete={deleteVideo} />}
+      {transcribeDialog && settings && (
+        <TranscribeDialog
+          mode={transcribeDialog}
+          defaultModel={(meta.transcription?.model ?? settings.whisper.defaultModel) as WhisperModel}
+          defaultLanguage={meta.transcription?.language ?? 'auto'}
+          onCancel={() => setTranscribeDialog(null)}
+          onStart={startTranscription}
+        />
+      )}
     </div>
   );
 }
