@@ -6,6 +6,7 @@ import { TranscriptView } from '@renderer/components/TranscriptView';
 import { SummaryView } from '@renderer/components/SummaryView';
 import { ChatPanel } from '@renderer/components/ChatPanel';
 import { MarkdownWithTimestamps } from '@renderer/components/MarkdownWithTimestamps';
+import { NotesView } from '@renderer/components/NotesView';
 import { EditDetailsModal } from '@renderer/components/EditDetailsModal';
 import { formatTranscriptForLlm } from '@renderer/lib/transcriptFormat';
 import { useLlmStream } from '@renderer/hooks/useIpcStream';
@@ -14,7 +15,7 @@ import { toast } from '@renderer/components/Toast';
 import { Button } from '@renderer/components/ui/button';
 import type { VideoMeta } from '@shared/types';
 
-type Tab = 'transcript' | 'summary' | 'highlights' | 'info';
+type Tab = 'transcript' | 'summary' | 'highlights' | 'notes' | 'info';
 
 const HIGHLIGHTS_PROMPT =
   'Extract the 5–10 most important moments from this video transcript. ' +
@@ -336,23 +337,49 @@ export default function VideoDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={quickSummary} disabled={!transcript || !!quickReq} className="gap-1.5">
-            {quickReq ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            Quick summary
-          </Button>
-          <Button variant="outline" onClick={generateHighlights} disabled={!transcript || !!highlightsReq} className="gap-1.5">
-            {highlightsReq ? <Loader2 size={14} className="animate-spin" /> : <ListChecks size={14} />}
-            Highlight key moments
-          </Button>
-          <Button
-            variant="outline"
-            onClick={reTranscribe}
-            disabled={meta.status === 'transcribing'}
-            title="Re-run whisper on the current source file (overwrites transcript)"
-            className="gap-1.5"
-          >
-            <RotateCcw size={14} /> Re-transcribe
-          </Button>
+          {(() => {
+            const reason =
+              !transcript ? 'No transcript yet — transcribe the video first' :
+              !settings?.defaultLlm?.model ? 'Set a default LLM model in Settings → Workflow' :
+              quickReq ? 'Quick summary in progress' :
+              '';
+            return (
+              <span title={reason}>
+                <Button variant="outline" onClick={quickSummary} disabled={!!reason} title={reason} className="gap-1.5">
+                  {quickReq ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  Quick summary
+                </Button>
+              </span>
+            );
+          })()}
+          {(() => {
+            const reason =
+              !transcript ? 'No transcript yet — transcribe the video first' :
+              !settings?.defaultLlm?.model ? 'Set a default LLM model in Settings → Workflow' :
+              highlightsReq ? 'Highlights generation in progress' :
+              '';
+            return (
+              <span title={reason}>
+                <Button variant="outline" onClick={generateHighlights} disabled={!!reason} title={reason} className="gap-1.5">
+                  {highlightsReq ? <Loader2 size={14} className="animate-spin" /> : <ListChecks size={14} />}
+                  Highlight key moments
+                </Button>
+              </span>
+            );
+          })()}
+          {(() => {
+            const reason = meta.status === 'transcribing'
+              ? 'Transcription already running'
+              : 'Re-run whisper on the current source file (overwrites transcript)';
+            const disabled = meta.status === 'transcribing';
+            return (
+              <span title={reason}>
+                <Button variant="outline" onClick={reTranscribe} disabled={disabled} title={reason} className="gap-1.5">
+                  <RotateCcw size={14} /> Re-transcribe
+                </Button>
+              </span>
+            );
+          })()}
           <Button variant="outline" onClick={() => setEditing(true)} className="gap-1.5">
             <Pencil size={14} /> Edit
           </Button>
@@ -379,7 +406,7 @@ export default function VideoDetail() {
             className="w-full bg-black aspect-video"
           />
           <div className="flex border-b text-sm">
-            {(['transcript', 'summary', 'highlights', 'info'] as const).map(t => (
+            {(['transcript', 'summary', 'highlights', 'notes', 'info'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -410,6 +437,7 @@ export default function VideoDetail() {
                 )}
               </div>
             )}
+            {tab === 'notes' && <NotesView videoId={meta.id} onSeek={onSeek} />}
             {tab === 'info' && <InfoView meta={meta} paths={paths} onEditClick={() => setEditing(true)} />}
           </div>
         </div>

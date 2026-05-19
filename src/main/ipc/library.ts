@@ -92,6 +92,32 @@ export function registerLibraryIpc() {
     await fs.writeFile(join(s.libraryPath, meta.folderName, 'summary.md'), markdown);
   });
 
+  ipcMain.handle('library:readNotes', async (_e, id: string): Promise<string> => {
+    const s = await loadSettings();
+    const meta = await readMeta(s.libraryPath, id);
+    try {
+      return await fs.readFile(join(s.libraryPath, meta.folderName, 'notes.md'), 'utf8');
+    } catch {
+      return '';
+    }
+  });
+
+  ipcMain.handle('library:writeNotes', async (_e, id: string, markdown: string) => {
+    const s = await loadSettings();
+    const meta = await readMeta(s.libraryPath, id);
+    await fs.writeFile(join(s.libraryPath, meta.folderName, 'notes.md'), markdown);
+  });
+
+  ipcMain.handle('library:appendNotes', async (_e, id: string, fragment: string) => {
+    const s = await loadSettings();
+    const meta = await readMeta(s.libraryPath, id);
+    const path = join(s.libraryPath, meta.folderName, 'notes.md');
+    let current = '';
+    try { current = await fs.readFile(path, 'utf8'); } catch { /* new file */ }
+    const sep = current.length === 0 ? '' : (current.endsWith('\n') ? '\n' : '\n\n');
+    await fs.writeFile(path, current + sep + fragment + (fragment.endsWith('\n') ? '' : '\n'));
+  });
+
   ipcMain.handle('library:readChat', async (_e, id: string): Promise<ChatHistory | null> => {
     const s = await loadSettings();
     const meta = await readMeta(s.libraryPath, id);

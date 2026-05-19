@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, X, Bookmark } from 'lucide-react';
 import { Button } from './ui/button';
 import { useSettings } from '@renderer/stores/settings';
 import { useLlmStream } from '@renderer/hooks/useIpcStream';
@@ -174,6 +174,18 @@ export function ChatPanel({ videoId, transcript, summary, onSeek }: Props) {
     setChats(prev => prev.map(c => c.id === updated.id ? { ...c, title: updated.title } : c));
   };
 
+  const saveToNotes = async (content: string) => {
+    try {
+      const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      const fragment = `## From chat — ${stamp}\n\n${content}\n\n---`;
+      await window.api.library.appendNotes(videoId, fragment);
+      window.dispatchEvent(new CustomEvent('notes:changed', { detail: { videoId } }));
+      toast.success('Saved to Notes');
+    } catch (e) {
+      toast.error(`Save failed: ${(e as Error).message}`);
+    }
+  };
+
   const messagesToShow = active?.messages ?? [];
 
   return (
@@ -236,8 +248,17 @@ export function ChatPanel({ videoId, transcript, summary, onSeek }: Props) {
                 {m.content}
               </div>
             ) : (
-              <div className="inline-block max-w-[85%] px-3 py-2 rounded-lg text-sm bg-slate-100">
-                <MarkdownWithTimestamps text={m.content} onSeek={onSeek} className="prose prose-sm max-w-none" />
+              <div className="inline-block max-w-[85%] group relative">
+                <div className="px-3 py-2 rounded-lg text-sm bg-slate-100">
+                  <MarkdownWithTimestamps text={m.content} onSeek={onSeek} className="prose prose-sm max-w-none" />
+                </div>
+                <button
+                  onClick={() => saveToNotes(m.content)}
+                  title="Save this answer to Notes"
+                  className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white border rounded-full p-1 shadow-sm hover:bg-slate-50 text-slate-600"
+                >
+                  <Bookmark size={12} />
+                </button>
               </div>
             )}
           </div>
@@ -260,9 +281,22 @@ export function ChatPanel({ videoId, transcript, summary, onSeek }: Props) {
                disabled={streaming}
                placeholder="Ask about this video…"
                className="flex-1 border rounded px-2 py-1 text-sm" />
-        <Button onClick={send} disabled={streaming || !input.trim() || !model}>
-          {streaming ? '…' : 'Send'}
-        </Button>
+        {(() => {
+          const reason =
+            streaming ? 'Streaming a response — please wait' :
+            !model ? 'Pick a model in the dropdown above first' :
+            !input.trim() ? 'Type a message first' :
+            !transcript ? 'No transcript yet — transcribe the video first' :
+            '';
+          const disabled = !!reason;
+          return (
+            <span title={reason} className={disabled ? 'cursor-not-allowed' : undefined}>
+              <Button onClick={send} disabled={disabled} title={reason}>
+                {streaming ? '…' : 'Send'}
+              </Button>
+            </span>
+          );
+        })()}
       </div>
     </div>
   );
