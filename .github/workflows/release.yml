@@ -20,20 +20,34 @@ concurrency:
 
 jobs:
   build:
-    name: Build (${{ matrix.os }})
+    name: Build ${{ matrix.id }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
+          # macOS arm64 (Apple Silicon) — runs on arm64 host so native rebuilds match.
+          - id: macos-arm64
+            os: macos-latest
+            builder-flags: --mac --arm64
             artifact-glob: |
               dist/*.dmg
               dist/*.zip
-          - os: windows-latest
+          # macOS x64 (Intel) — runs on Intel host (macos-13).
+          - id: macos-x64
+            os: macos-13
+            builder-flags: --mac --x64
+            artifact-glob: |
+              dist/*.dmg
+              dist/*.zip
+          - id: windows
+            os: windows-latest
+            builder-flags: --win
             artifact-glob: |
               dist/*.exe
               dist/*.msi
-          - os: ubuntu-latest
+          - id: linux
+            os: ubuntu-latest
+            builder-flags: --linux
             artifact-glob: |
               dist/*.AppImage
               dist/*.deb
@@ -55,7 +69,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install Linux native build deps
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.id == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -65,18 +79,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Package (electron-builder)
-        run: npm run package
+      - name: Build bundle (electron-vite)
+        run: npm run build
+
+      - name: Package (electron-builder, single arch)
+        # We invoke electron-builder explicitly with a single arch per job.
+        # Running both archs from one host caused @electron/rebuild to leave the
+        # last-rebuilt arch's keytar.node in node_modules and ship the wrong
+        # binary inside one of the two DMGs (issue seen in v0.1.0 – v0.1.3).
+        run: npx electron-builder ${{ matrix.builder-flags }} --publish never
         env:
-          # electron-builder picks this up to publish; leave empty to only build artifacts.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Skip auto-publish from electron-builder — we publish in the release job below.
-          EB_PUBLISH: never
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dist-${{ matrix.os }}
+          name: dist-${{ matrix.id }}
           path: ${{ matrix.artifact-glob }}
           if-no-files-found: ignore
           retention-days: 14
