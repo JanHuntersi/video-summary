@@ -5,13 +5,21 @@ import type { LlmProviderId } from '@shared/types';
 import { toast } from '@renderer/components/Toast';
 
 export default function SettingsPage() {
-  const { settings, load, save } = useSettings();
+  const { settings, load, save, checkGeminiKey } = useSettings();
   const [keyInput, setKeyInput] = useState('');
   const [ollamaStatus, setOllamaStatus] = useState<string>('');
   const [geminiStatus, setGeminiStatus] = useState<string>('');
   const [wfModels, setWfModels] = useState<string[]>([]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void (async () => {
+      await load();
+      // Probe keychain ONLY when the Settings page is open. Users who never visit
+      // Settings (e.g. Ollama-only workflows) won't trigger the macOS auth prompt
+      // for the unsigned app.
+      await checkGeminiKey().catch(() => { /* user denied or no key; that's fine */ });
+    })();
+  }, []);
 
   useEffect(() => {
     if (!settings) return;

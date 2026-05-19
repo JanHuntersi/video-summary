@@ -7,7 +7,8 @@ const api = {
     get: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
     save: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:save', patch),
     setGeminiKey: (k: string) => ipcRenderer.invoke('settings:setGeminiKey', k),
-    clearGeminiKey: () => ipcRenderer.invoke('settings:clearGeminiKey')
+    clearGeminiKey: () => ipcRenderer.invoke('settings:clearGeminiKey'),
+    checkGeminiKey: (): Promise<boolean> => ipcRenderer.invoke('settings:checkGeminiKey')
   },
   library: {
     reconcile: () => ipcRenderer.invoke('library:reconcile'),

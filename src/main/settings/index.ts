@@ -34,9 +34,21 @@ export async function loadSettings(): Promise<AppSettings> {
   } catch {
     cached = def;
   }
-  const existing = await keytar.getPassword(KEYTAR_SERVICE, GEMINI_ACCOUNT);
-  cached!.gemini.hasKey = !!existing;
+  // hasKey is intentionally NOT populated here. Reading the keychain at startup
+  // triggers a macOS auth prompt for unsigned builds even when the user never
+  // intends to use Gemini. Call checkGeminiKey() lazily (e.g. when the Settings
+  // page mounts) instead.
+  cached!.gemini.hasKey = false;
   return cached!;
+}
+
+/** Probe the keychain for an existing Gemini key. Triggers macOS Keychain auth
+ *  prompt on unsigned builds the first time it runs. Call lazily — only when
+ *  the user opens UI that needs to know whether a key is configured. */
+export async function checkGeminiKey(): Promise<boolean> {
+  const existing = await keytar.getPassword(KEYTAR_SERVICE, GEMINI_ACCOUNT);
+  if (cached) cached.gemini.hasKey = !!existing;
+  return !!existing;
 }
 
 export async function saveSettings(patch: Partial<AppSettings>): Promise<AppSettings> {
