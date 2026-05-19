@@ -20,6 +20,9 @@ const LANGUAGES: Array<{ code: string; label: string }> = [
 const MODELS = ['tiny', 'base', 'small', 'medium', 'large'] as const;
 export type WhisperModel = typeof MODELS[number];
 
+// Languages whisper.cpp frequently confuses with neighbours on small models.
+const LOW_RESOURCE_LANGS = new Set(['sl', 'hr', 'sr', 'bs', 'mk']);
+
 interface Props {
   mode: 'transcribe' | 're-transcribe';
   defaultModel: WhisperModel;
@@ -85,6 +88,11 @@ export function TranscribeDialog({ mode, defaultModel, defaultLanguage, onCancel
             <p className="text-xs text-slate-500 mt-1">
               <code>tiny</code> ≈ 75 MB, fastest, lowest quality · <code>base</code> ≈ 140 MB, good default · <code>small</code> ≈ 480 MB · <code>medium</code> ≈ 1.5 GB · <code>large</code> ≈ 3 GB, slowest, best.
             </p>
+            {LOW_RESOURCE_LANGS.has(language) && (model === 'tiny' || model === 'base' || model === 'small') && (
+              <div className="mt-2 text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded px-2 py-1.5">
+                ⚠️ Whisper often confuses <b>{LANGUAGES.find(l => l.code === language)?.label}</b> with its South-Slavic neighbours on smaller models (you may get Croatian output for Slovenian input, etc.). For best accuracy, use <code>medium</code> or <code>large</code>.
+              </div>
+            )}
           </div>
         </div>
 

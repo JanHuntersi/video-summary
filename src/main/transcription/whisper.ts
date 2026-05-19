@@ -50,12 +50,27 @@ async function readWavAsFloat32(path: string): Promise<Float32Array> {
   return samples;
 }
 
+// Initial prompts in the target language. Whisper uses these as a soft bias —
+// helpful for confusable low-resource South Slavic languages where smaller
+// models often output the wrong neighbour (e.g. Slovenian → Croatian).
+const INITIAL_PROMPTS: Record<string, string> = {
+  sl: 'Pozdravljeni, to je posnetek v slovenskem jeziku. Govorimo slovensko.',
+  hr: 'Pozdrav, ovo je snimka na hrvatskom jeziku. Govorimo hrvatski.',
+  sr: 'Здраво, ово је снимак на српском језику. Говоримо српски.',
+  bs: 'Pozdrav, ovo je snimak na bosanskom jeziku. Govorimo bosanski.',
+  mk: 'Здраво, ова е снимка на македонски јазик. Зборуваме македонски.'
+};
+
 export async function transcribe(modelPath: string, opts: TranscribeOpts): Promise<TranscriptSegment[]> {
   const whisper = new Whisper(modelPath);
   try {
     const pcm = await readWavAsFloat32(opts.audioPath);
     const params: Record<string, unknown> = {};
-    if (opts.language && opts.language !== 'auto') params.language = opts.language;
+    if (opts.language && opts.language !== 'auto') {
+      params.language = opts.language;
+      const prompt = INITIAL_PROMPTS[opts.language];
+      if (prompt) params.initial_prompt = prompt;
+    }
 
     const task = await whisper.transcribe(pcm, params);
     const segments: TranscriptSegment[] = [];

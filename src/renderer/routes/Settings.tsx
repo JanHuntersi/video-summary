@@ -10,6 +10,8 @@ export default function SettingsPage() {
   const [ollamaStatus, setOllamaStatus] = useState<string>('');
   const [geminiStatus, setGeminiStatus] = useState<string>('');
   const [wfModels, setWfModels] = useState<string[]>([]);
+  const [version, setVersion] = useState<string>('');
+  const [updateStatus, setUpdateStatus] = useState<string>('');
 
   useEffect(() => {
     void (async () => {
@@ -19,7 +21,21 @@ export default function SettingsPage() {
       // for the unsigned app.
       await checkGeminiKey().catch(() => { /* user denied or no key; that's fine */ });
     })();
+    void window.api.system.getVersion().then(setVersion).catch(() => {});
   }, []);
+
+  const checkForUpdates = async () => {
+    setUpdateStatus('Checking…');
+    try {
+      const r = await window.api.system.checkLatest(true);
+      if (r.error) setUpdateStatus(`Error: ${r.error}`);
+      else if (r.isNewer && r.latest) setUpdateStatus(`Update available: v${r.latest}`);
+      else if (r.latest) setUpdateStatus(`You're on the latest version (v${r.latest})`);
+      else setUpdateStatus('No release info available');
+    } catch (e) {
+      setUpdateStatus(`Error: ${(e as Error).message}`);
+    }
+  };
 
   useEffect(() => {
     if (!settings) return;
@@ -154,6 +170,38 @@ export default function SettingsPage() {
         <textarea className="w-full border rounded p-2 text-sm h-32"
                   value={settings.prompts.chat}
                   onChange={e => save({ prompts: { ...settings.prompts, chat: e.target.value } })}/>
+      </section>
+
+      <section className="border-t pt-4">
+        <h2 className="text-lg font-semibold mb-2">About</h2>
+        <div className="text-sm space-y-1">
+          <div>
+            <span className="text-slate-600">Version:</span>{' '}
+            <code className="bg-slate-100 px-1.5 py-0.5 rounded">{version || '…'}</code>
+          </div>
+          <div>
+            <span className="text-slate-600">Repository:</span>{' '}
+            <button
+              onClick={() => window.api.system.openExternal('https://github.com/JanHuntersi/video-summary')}
+              className="text-blue-600 hover:underline"
+            >
+              github.com/JanHuntersi/video-summary
+            </button>
+          </div>
+          <div>
+            <span className="text-slate-600">Releases:</span>{' '}
+            <button
+              onClick={() => window.api.system.openExternal('https://github.com/JanHuntersi/video-summary/releases')}
+              className="text-blue-600 hover:underline"
+            >
+              View all releases
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-3">
+          <Button variant="outline" onClick={checkForUpdates}>Check for updates</Button>
+          {updateStatus && <span className="text-sm text-slate-600">{updateStatus}</span>}
+        </div>
       </section>
     </div>
   );

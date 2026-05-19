@@ -9,9 +9,11 @@ type QueueItem = { videoId: string; title: string; status: 'queued' | 'running';
 
 export function Sidebar() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [version, setVersion] = useState<string>('');
 
   useEffect(() => {
     void window.api.transcription.getQueue().then(setQueue).catch(() => {});
+    void window.api.system.getVersion().then(setVersion).catch(() => {});
     const off = window.api.transcription.onQueueChanged(items => setQueue(items));
     return () => { off(); };
   }, []);
@@ -67,6 +69,20 @@ export function Sidebar() {
       >
         <SetIcon size={16} /> Settings
       </NavLink>
+
+      {version && (
+        <div
+          className="text-[10px] text-slate-400 text-center pt-2 select-text"
+          title="Click to view release notes on GitHub"
+        >
+          <button
+            onClick={() => window.api.system.openExternal(`https://github.com/JanHuntersi/video-summary/releases/tag/v${version}`)}
+            className="hover:text-slate-600 hover:underline"
+          >
+            VideoSummary v{version}
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
