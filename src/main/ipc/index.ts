@@ -5,6 +5,7 @@ import { registerTranscriptionIpc } from './transcription';
 import { registerLlmIpc } from './llm';
 import { registerYtdlpIpc } from './ytdlp';
 import { registerSystemIpc } from './system';
+import { registerModelsIpc } from './models';
 
 export function registerAllIpc() {
   registerSettingsIpc();
@@ -13,4 +14,5 @@ export function registerAllIpc() {
   registerLlmIpc();
   registerYtdlpIpc();
   registerSystemIpc();
+  registerModelsIpc();
 }

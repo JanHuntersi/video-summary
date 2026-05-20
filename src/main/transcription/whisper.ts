@@ -4,18 +4,26 @@ import { Whisper } from 'smart-whisper';
 import type { TranscriptSegment } from '@shared/types';
 import { modelFilePath, modelUrl, type ModelName } from './models';
 
-export async function ensureModel(modelsDir: string, model: ModelName): Promise<string> {
+interface DownloadOpts {
+  onProgress?: (downloaded: number, total: number) => void;
+}
+
+export async function ensureModel(modelsDir: string, model: ModelName, opts: DownloadOpts = {}): Promise<string> {
   const path = modelFilePath(modelsDir, model);
   try { await fs.access(path); return path; } catch { /* needs download */ }
   await fs.mkdir(dirname(path), { recursive: true });
   const url = modelUrl(model);
   const res = await fetch(url);
   if (!res.ok || !res.body) throw new Error(`Model download failed: ${res.status}`);
+  const total = Number(res.headers.get('content-length') ?? 0);
+  let downloaded = 0;
   const file = createWriteStream(path);
   await new Promise<void>((resolve, reject) => {
     const reader = (res.body as ReadableStream<Uint8Array>).getReader();
     const pump = (): Promise<void> => reader.read().then(({ done, value }) => {
       if (done) { file.end(); return; }
+      downloaded += value.byteLength;
+      opts.onProgress?.(downloaded, total);
       file.write(Buffer.from(value));
       return pump();
     });

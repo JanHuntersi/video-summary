@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSettings } from '@renderer/stores/settings';
 import { Button } from '@renderer/components/ui/button';
+import { ModelManager } from '@renderer/components/ModelManager';
 import type { LlmProviderId } from '@shared/types';
 import { toast } from '@renderer/components/Toast';
 
@@ -91,13 +92,20 @@ export default function SettingsPage() {
 
       <section>
         <h2 className="text-lg font-semibold mb-2">Transcription</h2>
-        <label className="text-sm">Default Whisper model:&nbsp;
+        <label className="text-sm block mb-3">Default Whisper model:&nbsp;
           <select value={settings.whisper.defaultModel}
                   onChange={e => save({ whisper: { ...settings.whisper, defaultModel: e.target.value as AppSettingsWhisperModel }})}
                   className="border rounded px-2 py-1">
             {(['tiny','base','small','medium','turbo','large'] as const).map(m => <option key={m}>{m}</option>)}
           </select>
         </label>
+        <div>
+          <h3 className="text-sm font-medium mb-1.5">Downloaded models</h3>
+          <p className="text-xs text-slate-500 mb-2">
+            Models are downloaded from Hugging Face on demand. Pre-download here to avoid waiting on first transcribe, or delete unused models to reclaim disk space.
+          </p>
+          <ModelManager />
+        </div>
       </section>
 
       <section>

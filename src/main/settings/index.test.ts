@@ -28,7 +28,7 @@ describe('settings', () => {
     const { loadSettings } = await import('./index');
     const s = await loadSettings();
     expect(s.importMode).toBe('copy');
-    expect(s.whisper.defaultModel).toBe('turbo');
+    expect(s.whisper.defaultModel).toBe('small');
     expect(s.gemini.hasKey).toBe(false);
   });
 

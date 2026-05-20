@@ -105,6 +105,27 @@ const api = {
       return () => ipcRenderer.removeListener('llm:chunk', listener);
     }
   },
+  models: {
+    list: (): Promise<Array<{ id: string; installed: boolean; sizeBytes: number | null }>> =>
+      ipcRenderer.invoke('models:list'),
+    download: (id: string): Promise<void> => ipcRenderer.invoke('models:download', id),
+    delete: (id: string): Promise<void> => ipcRenderer.invoke('models:delete', id),
+    onProgress: (fn: (p: { id: string; downloaded: number; total: number }) => void) => {
+      const listener = (_: unknown, p: any) => fn(p);
+      ipcRenderer.on('models:downloadProgress', listener);
+      return () => ipcRenderer.removeListener('models:downloadProgress', listener);
+    },
+    onDone: (fn: (p: { id: string }) => void) => {
+      const listener = (_: unknown, p: any) => fn(p);
+      ipcRenderer.on('models:downloadDone', listener);
+      return () => ipcRenderer.removeListener('models:downloadDone', listener);
+    },
+    onError: (fn: (p: { id: string; message: string }) => void) => {
+      const listener = (_: unknown, p: any) => fn(p);
+      ipcRenderer.on('models:downloadError', listener);
+      return () => ipcRenderer.removeListener('models:downloadError', listener);
+    }
+  },
   system: {
     getVersion: (): Promise<string> => ipcRenderer.invoke('system:getVersion'),
     checkLatest: (force?: boolean): Promise<{
