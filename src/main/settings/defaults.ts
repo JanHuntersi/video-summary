@@ -19,7 +19,10 @@ export function defaultSettings(): AppSettings {
   return {
     libraryPath: join(homedir(), 'Videos', 'VideoSummary'),
     importMode: 'copy',
-    whisper: { defaultModel: 'base', modelsDir: join(userData, 'whisper-models') },
+    // Default to turbo (large-v3-turbo): ~1.5 GB, downloaded on first use,
+    // gives ~95% accuracy for Slovenian/Croatian — bigger models that fit in
+    // memory aren't worth the extra time for typical workloads.
+    whisper: { defaultModel: 'turbo', modelsDir: join(userData, 'whisper-models') },
     ollama: { baseUrl: 'http://localhost:11434' },
     gemini: { hasKey: false },
     prompts: { summary: DEFAULT_SUMMARY_PROMPT, chat: DEFAULT_CHAT_PROMPT },

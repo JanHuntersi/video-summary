@@ -95,7 +95,7 @@ export default function SettingsPage() {
           <select value={settings.whisper.defaultModel}
                   onChange={e => save({ whisper: { ...settings.whisper, defaultModel: e.target.value as AppSettingsWhisperModel }})}
                   className="border rounded px-2 py-1">
-            {(['tiny','base','small','medium','large'] as const).map(m => <option key={m}>{m}</option>)}
+            {(['tiny','base','small','medium','turbo','large'] as const).map(m => <option key={m}>{m}</option>)}
           </select>
         </label>
       </section>
@@ -207,4 +207,4 @@ export default function SettingsPage() {
   );
 }
 
-type AppSettingsWhisperModel = 'tiny' | 'base' | 'small' | 'medium' | 'large';
+type AppSettingsWhisperModel = 'tiny' | 'base' | 'small' | 'medium' | 'turbo' | 'large';

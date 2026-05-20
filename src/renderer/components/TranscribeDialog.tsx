@@ -17,8 +17,21 @@ const LANGUAGES: Array<{ code: string; label: string }> = [
   { code: 'ru',   label: 'Russian' }
 ];
 
-const MODELS = ['tiny', 'base', 'small', 'medium', 'large'] as const;
-export type WhisperModel = typeof MODELS[number];
+interface ModelOption {
+  id: 'tiny' | 'base' | 'small' | 'medium' | 'turbo' | 'large';
+  size: string;
+  note: string;
+}
+
+const MODELS: ModelOption[] = [
+  { id: 'tiny',   size: '~75 MB',  note: 'fastest, lowest quality' },
+  { id: 'base',   size: '~140 MB', note: 'fast, mediocre quality' },
+  { id: 'small',  size: '~480 MB', note: 'good speed/quality balance for major languages' },
+  { id: 'medium', size: '~1.5 GB', note: 'solid quality, slow' },
+  { id: 'turbo',  size: '~1.5 GB', note: 'recommended — near-large quality at medium speed' },
+  { id: 'large',  size: '~3 GB',   note: 'best quality, slowest' }
+];
+export type WhisperModel = ModelOption['id'];
 
 // Languages whisper.cpp frequently confuses with neighbours on small models.
 const LOW_RESOURCE_LANGS = new Set(['sl', 'hr', 'sr', 'bs', 'mk']);
@@ -83,14 +96,18 @@ export function TranscribeDialog({ mode, defaultModel, defaultLanguage, onCancel
               onChange={e => setModel(e.target.value as WhisperModel)}
               className="w-full border rounded px-2 py-1.5 text-sm"
             >
-              {MODELS.map(m => <option key={m} value={m}>{m}</option>)}
+              {MODELS.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.id} ({m.size}) — {m.note}
+                </option>
+              ))}
             </select>
             <p className="text-xs text-slate-500 mt-1">
-              <code>tiny</code> ≈ 75 MB, fastest, lowest quality · <code>base</code> ≈ 140 MB, good default · <code>small</code> ≈ 480 MB · <code>medium</code> ≈ 1.5 GB · <code>large</code> ≈ 3 GB, slowest, best.
+              The model file downloads from Hugging Face on first use and stays cached locally for next time.
             </p>
             {LOW_RESOURCE_LANGS.has(language) && (model === 'tiny' || model === 'base' || model === 'small') && (
               <div className="mt-2 text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded px-2 py-1.5">
-                ⚠️ Whisper often confuses <b>{LANGUAGES.find(l => l.code === language)?.label}</b> with its South-Slavic neighbours on smaller models (you may get Croatian output for Slovenian input, etc.). For best accuracy, use <code>medium</code> or <code>large</code>.
+                ⚠️ Whisper often confuses <b>{LANGUAGES.find(l => l.code === language)?.label}</b> with its South-Slavic neighbours on smaller models (you may get Croatian output for Slovenian input, etc.). For best accuracy on this language, use <code>turbo</code> or <code>large</code>.
               </div>
             )}
           </div>

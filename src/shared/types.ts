@@ -46,7 +46,7 @@ export interface IndexEntry {
 export interface AppSettings {
   libraryPath: string;
   importMode: 'copy' | 'move';
-  whisper: { defaultModel: 'tiny' | 'base' | 'small' | 'medium' | 'large'; modelsDir: string };
+  whisper: { defaultModel: 'tiny' | 'base' | 'small' | 'medium' | 'turbo' | 'large'; modelsDir: string };
   ollama: { baseUrl: string };
   gemini: { hasKey: boolean };          // actual key in keychain
   prompts: { summary: string; chat: string };

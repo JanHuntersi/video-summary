@@ -47,7 +47,7 @@ export default function NewVideo() {
   const urlRequestIdRef = useRef<string | null>(null);
 
   // Stage 2 — transcribe
-  const [model, setModel] = useState<'tiny' | 'base' | 'small' | 'medium' | 'large'>('base');
+  const [model, setModel] = useState<'tiny' | 'base' | 'small' | 'medium' | 'turbo' | 'large'>('turbo');
   const [language, setLanguage] = useState('auto');
   const [transcribing, setTranscribing] = useState(false);
   const [progressText, setProgressText] = useState('');
@@ -393,9 +393,9 @@ export default function NewVideo() {
             <div className="space-y-3">
               <div className="flex gap-3 flex-wrap text-sm">
                 <label>Model&nbsp;
-                  <select value={model} onChange={e => setModel(e.target.value as 'tiny' | 'base' | 'small' | 'medium' | 'large')}
+                  <select value={model} onChange={e => setModel(e.target.value as 'tiny' | 'base' | 'small' | 'medium' | 'turbo' | 'large')}
                     className="border rounded px-2 py-1" disabled={transcribing || transcribed}>
-                    {['tiny', 'base', 'small', 'medium', 'large'].map(m => <option key={m}>{m}</option>)}
+                    {['tiny', 'base', 'small', 'medium', 'turbo', 'large'].map(m => <option key={m}>{m}</option>)}
                   </select>
                 </label>
                 <label>Language&nbsp;

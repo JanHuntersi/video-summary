@@ -51,14 +51,31 @@ async function readWavAsFloat32(path: string): Promise<Float32Array> {
 }
 
 // Initial prompts in the target language. Whisper uses these as a soft bias —
-// helpful for confusable low-resource South Slavic languages where smaller
+// crucial for confusable low-resource South Slavic languages where smaller
 // models often output the wrong neighbour (e.g. Slovenian → Croatian).
+//
+// Each prompt packs discourse markers and grammatical patterns that are
+// distinctive for the target language vs its neighbours, biasing the decoder
+// toward the right token distribution. ~50 tokens each (well under 224 limit).
 const INITIAL_PROMPTS: Record<string, string> = {
-  sl: 'Pozdravljeni, to je posnetek v slovenskem jeziku. Govorimo slovensko.',
-  hr: 'Pozdrav, ovo je snimka na hrvatskom jeziku. Govorimo hrvatski.',
-  sr: 'Здраво, ово је снимак на српском језику. Говоримо српски.',
-  bs: 'Pozdrav, ovo je snimak na bosanskom jeziku. Govorimo bosanski.',
-  mk: 'Здраво, ова е снимка на македонски јазик. Зборуваме македонски.'
+  // Slovenian markers: "pravzaprav, namreč, sicer, vendar, čeprav, kakorkoli" —
+  // discourse particles that are far more frequent in Slovenian than Croatian.
+  // Dual forms (sva, sta, ta — "midva, vidva") are uniquely Slovenian.
+  sl: 'Pozdravljeni, to je posnetek v slovenščini. Pravzaprav je namreč tako, ' +
+      'da govorimo slovensko, in sicer čeprav so si jeziki podobni, midva ' +
+      'oziroma vidva razumeta razliko. Hvala, prosim, recimo, kakorkoli, ' +
+      'predvsem, zlasti, največkrat, dejansko.',
+  // Croatian markers: "naime, naravno, ipak, dakle, međutim" + Croatian
+  // orthography (j, lj, nj clusters).
+  hr: 'Pozdrav, ovo je snimka na hrvatskom jeziku. Naime, govorimo hrvatski, ' +
+      'naravno, i dakle, ipak međutim, što ne, znači, hvala lijepa, ' +
+      'molim vas, naime, zapravo.',
+  sr: 'Здраво, ово је снимак на српском језику. Наиме, говоримо српски, ' +
+      'дакле, ипак међутим, заправо, наравно, хвала, молим.',
+  bs: 'Pozdrav, ovo je snimak na bosanskom jeziku. Naime, govorimo bosanski, ' +
+      'dakle, šta, kako, ipak, naravno, hvala, molim.',
+  mk: 'Здраво, ова е снимка на македонски јазик. Имено, зборуваме македонски, ' +
+      'дека, мегу другото, секако, благодарам, молам.'
 };
 
 export async function transcribe(modelPath: string, opts: TranscribeOpts): Promise<TranscriptSegment[]> {
