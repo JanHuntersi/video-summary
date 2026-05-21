@@ -6,6 +6,7 @@ import Library from './routes/Library';
 import VideoDetail from './routes/VideoDetail';
 import SettingsPage from './routes/Settings';
 import NewVideo from './routes/NewVideo';
+import SessionDetail from './routes/SessionDetail';
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
               <Route path="/video/:id" element={<VideoDetail />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/new" element={<NewVideo />} />
+              <Route path="/sessions/:id" element={<SessionDetail />} />
             </Routes>
           </main>
         </div>
