@@ -63,23 +63,6 @@ const api = {
       return () => ipcRenderer.removeListener('ytdlp:error', listener);
     }
   },
-  transcription: {
-    onProgress: (fn: (p: { videoId: string; segmentIndex: number; partialText: string }) => void) => {
-      const listener = (_: unknown, p: any) => fn(p);
-      ipcRenderer.on('transcription:progress', listener);
-      return () => ipcRenderer.removeListener('transcription:progress', listener);
-    },
-    onDone: (fn: (p: { videoId: string }) => void) => {
-      const listener = (_: unknown, p: any) => fn(p);
-      ipcRenderer.on('transcription:done', listener);
-      return () => ipcRenderer.removeListener('transcription:done', listener);
-    },
-    onError: (fn: (p: { videoId: string; message: string }) => void) => {
-      const listener = (_: unknown, p: any) => fn(p);
-      ipcRenderer.on('transcription:error', listener);
-      return () => ipcRenderer.removeListener('transcription:error', listener);
-    }
-  },
   sessions: {
     list: (): Promise<SessionItem[]> => ipcRenderer.invoke('sessions:list'),
     get: (id: string): Promise<SessionItem | null> => ipcRenderer.invoke('sessions:get', id),
