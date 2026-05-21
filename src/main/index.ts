@@ -63,7 +63,7 @@ app.whenReady().then(async () => {
       return new Response(`Not found: ${(e as Error).message}`, { status: 404 });
     }
   });
-  registerAllIpc();
+  await registerAllIpc();
   const s = await loadSettings();
   await reconcileLibrary(s.libraryPath).catch(() => {});
   createWindow();

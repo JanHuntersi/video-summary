@@ -6,8 +6,9 @@ import { registerLlmIpc } from './llm';
 import { registerYtdlpIpc } from './ytdlp';
 import { registerSystemIpc } from './system';
 import { registerModelsIpc } from './models';
+import { registerSessionsIpc } from './sessions';
 
-export function registerAllIpc() {
+export async function registerAllIpc() {
   registerSettingsIpc();
   registerLibraryIpc();
   registerTranscriptionIpc();
@@ -15,4 +16,5 @@ export function registerAllIpc() {
   registerYtdlpIpc();
   registerSystemIpc();
   registerModelsIpc();
+  await registerSessionsIpc();
 }

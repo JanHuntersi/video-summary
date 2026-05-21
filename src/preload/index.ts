@@ -1,6 +1,6 @@
 // src/preload/index.ts
 import { contextBridge, ipcRenderer } from 'electron';
-import type { AppSettings, ChatHistory, ChatMessage, ChatRecord, ChatSummary, IndexEntry, LlmProviderId, TranscriptSegment, VideoMeta } from '../shared/types';
+import type { AppSettings, ChatHistory, ChatMessage, ChatRecord, ChatSummary, IndexEntry, LlmProviderId, TranscriptSegment, VideoMeta, SessionItem } from '../shared/types';
 
 const api = {
   settings: {
@@ -87,6 +87,21 @@ const api = {
       const listener = (_: unknown, p: { items: Array<{ videoId: string; title: string; status: 'queued' | 'running'; addedAt: string }> }) => fn(p.items);
       ipcRenderer.on('transcription:queueChanged', listener);
       return () => ipcRenderer.removeListener('transcription:queueChanged', listener);
+    }
+  },
+  sessions: {
+    list: (): Promise<SessionItem[]> => ipcRenderer.invoke('sessions:list'),
+    get: (id: string): Promise<SessionItem | null> => ipcRenderer.invoke('sessions:get', id),
+    startLocal: (sourcePath: string, title: string): Promise<{ id: string }> =>
+      ipcRenderer.invoke('sessions:startLocal', { sourcePath, title }),
+    startUrl: (url: string, title?: string): Promise<{ id: string }> =>
+      ipcRenderer.invoke('sessions:startUrl', { url, title }),
+    cancel: (id: string): Promise<void> => ipcRenderer.invoke('sessions:cancel', id),
+    dismiss: (id: string): Promise<void> => ipcRenderer.invoke('sessions:dismiss', id),
+    onChange: (fn: (items: SessionItem[]) => void) => {
+      const listener = (_: unknown, p: { items: SessionItem[] }) => fn(p.items);
+      ipcRenderer.on('sessions:changed', listener);
+      return () => ipcRenderer.removeListener('sessions:changed', listener);
     }
   },
   llm: {
