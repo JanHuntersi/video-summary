@@ -1,6 +1,28 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SessionManager } from './manager';
 
+vi.mock('@main/ipc/ytdlp', () => {
+  return {
+    startDownload: vi.fn(async (args: any) => ({
+      requestId: 'req_1',
+      finished: Promise.resolve({
+        id: 'vid_url',
+        title: args.titleOverride ?? 'YT video',
+        slug: 'y',
+        folderName: 'f2',
+        originalFilename: 'o',
+        sourceRelPath: 'f2/source.mp4',
+        thumbnailRelPath: 'f2/t.jpg',
+        durationSec: 10,
+        createdAt: '2026-05-21',
+        status: 'imported' as const
+      }),
+      onProgress: (_cb: any) => () => {}
+    })),
+    cancelDownload: vi.fn(async () => {})
+  };
+});
+
 vi.mock('@main/library/crud', () => ({
   importVideo: vi.fn(async (opts: { title: string }) => ({
     id: 'vid_1', title: opts.title, slug: 'x', folderName: 'f',
@@ -79,5 +101,19 @@ describe('SessionManager.startLocal', () => {
     const id = await m.startLocal({ sourcePath: '/tmp/in.mp4', title: 'Bad' });
     expect(m.get(id)?.stage).toBe('error');
     expect(m.get(id)?.error).toMatch(/disk full/);
+  });
+});
+
+describe('SessionManager.startUrl', () => {
+  it('starts in importing-url, transitions to imported on finish', async () => {
+    const m = new SessionManager({
+      libraryPath: '/tmp/lib', importMode: 'copy',
+      autoTranscribe: false, autoSummarize: false
+    });
+    const id = await m.startUrl({ url: 'https://example.com/v', title: 'YT' });
+    // The finished promise resolves on the next microtask; let it.
+    await new Promise(r => setImmediate(r));
+    expect(m.get(id)?.stage).toBe('imported');
+    expect(m.get(id)?.videoId).toBe('vid_url');
   });
 });
