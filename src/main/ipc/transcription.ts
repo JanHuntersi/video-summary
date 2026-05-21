@@ -29,7 +29,7 @@ function ensureQueueSubscription() {
   queue.onChange(broadcastQueue);
 }
 
-async function extractWav(videoPath: string): Promise<string> {
+export async function extractWav(videoPath: string): Promise<string> {
   if (!ffmpegPath) throw new Error('ffmpeg not found');
   const out = join(tmpdir(), `vsw-${Date.now()}.wav`);
   await new Promise<void>((resolve, reject) => {

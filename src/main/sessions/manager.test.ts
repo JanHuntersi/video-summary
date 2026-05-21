@@ -29,12 +29,49 @@ vi.mock('@main/library/crud', () => ({
     originalFilename: 'o', sourceRelPath: 'f/source.mp4',
     thumbnailRelPath: 'f/t.jpg', durationSec: 1,
     createdAt: '2026-05-21', status: 'imported' as const
-  }))
+  })),
+  readMeta: vi.fn(async (_lib: string, id: string) => ({
+    id, title: 'T', slug: 'x', folderName: 'f',
+    originalFilename: 'o', sourceRelPath: 'f/source.mp4',
+    thumbnailRelPath: 'f/t.jpg', durationSec: 1,
+    createdAt: '2026-05-21', status: 'imported' as const
+  })),
+  updateMeta: vi.fn(async () => ({}))
 }));
 vi.mock('@main/media/ffmpeg', () => ({
   extractDuration: vi.fn(async () => 1),
   extractThumbnail: vi.fn(async () => Buffer.from('x'))
 }));
+
+vi.mock('@main/transcription/transcribe-host', () => ({
+  runTranscription: vi.fn(() => {
+    const w = { terminate: vi.fn() };
+    return {
+      worker: w,
+      result: Promise.resolve([{ start: 0, end: 1, text: 'hi' }]),
+      cancel: () => w.terminate()
+    };
+  })
+}));
+vi.mock('@main/transcription/whisper', () => ({
+  ensureModel: vi.fn(async () => '/m'),
+  transcribe: vi.fn()
+}));
+vi.mock('@main/ipc/transcription', () => ({
+  extractWav: vi.fn(async () => '/tmp/a.wav')
+}));
+
+vi.mock('fs', async () => {
+  const actual = await vi.importActual<typeof import('fs')>('fs');
+  return {
+    ...actual,
+    promises: {
+      ...actual.promises,
+      writeFile: vi.fn(async () => {}),
+      unlink: vi.fn(async () => {})
+    }
+  };
+});
 
 describe('SessionManager — state store', () => {
   it('creates an empty list', () => {
@@ -115,5 +152,57 @@ describe('SessionManager.startUrl', () => {
     await new Promise(r => setImmediate(r));
     expect(m.get(id)?.stage).toBe('imported');
     expect(m.get(id)?.videoId).toBe('vid_url');
+  });
+});
+
+describe('SessionManager auto-transcribe', () => {
+  it('transitions imported → transcribing → transcribed when autoTranscribe is on', async () => {
+    const m = new SessionManager({
+      libraryPath: '/tmp/lib', importMode: 'copy',
+      autoTranscribe: true, autoSummarize: false,
+      modelsDir: '/tmp/models', defaultModel: 'small',
+      defaultLanguage: 'auto',
+      defaultLlm: { providerId: 'ollama', model: '' },
+      summaryPrompt: ''
+    });
+    const id = await m.startLocal({ sourcePath: '/tmp/x.mp4', title: 'T' });
+    // Allow the scheduler microtasks to run.
+    await new Promise(r => setTimeout(r, 20));
+    expect(m.get(id)?.stage).toBe('transcribed');
+  });
+});
+
+describe('SessionManager.cancel', () => {
+  it('marks an importing-local session as cancelled', async () => {
+    const m = new SessionManager();
+    const id = m.createForTest({ title: 'A', stage: 'importing-local' });
+    await m.cancel(id);
+    expect(m.get(id)?.stage).toBe('cancelled');
+  });
+
+  it('cancel on a transcribing session calls cancelTranscription handle', async () => {
+    const m = new SessionManager();
+    const id = m.createForTest({ title: 'A', stage: 'transcribing' });
+    const internal: any = (m as any).sessions.get(id);
+    const cancelFn = vi.fn();
+    internal.cancelTranscription = cancelFn;
+    await m.cancel(id);
+    expect(cancelFn).toHaveBeenCalled();
+    expect(m.get(id)?.stage).toBe('cancelled');
+  });
+});
+
+describe('SessionManager.dismiss', () => {
+  it('removes a terminal session', () => {
+    const m = new SessionManager();
+    const id = m.createForTest({ title: 'A', stage: 'summarized' });
+    m.dismiss(id);
+    expect(m.get(id)).toBeNull();
+  });
+
+  it('throws when dismissing a non-terminal session', () => {
+    const m = new SessionManager();
+    const id = m.createForTest({ title: 'A', stage: 'transcribing' });
+    expect(() => m.dismiss(id)).toThrow(/cancel first/i);
   });
 });
