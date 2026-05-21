@@ -6,7 +6,14 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     resolve: { alias: { '@shared': resolve('src/shared'), '@main': resolve('src/main') } },
-    build: { rollupOptions: { input: { index: resolve('src/main/index.ts') } } }
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.ts'),
+          'transcribe-worker': resolve('src/main/transcription/transcribe-worker.ts')
+        }
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
