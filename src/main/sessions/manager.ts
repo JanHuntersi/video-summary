@@ -44,7 +44,8 @@ export class SessionManager {
   private toPublic(s: InternalSession): SessionItem {
     return {
       id: s.id, title: s.title, stage: s.stage, videoId: s.videoId,
-      progress: s.progress, startedAt: s.startedAt, error: s.error
+      progress: s.progress ? { ...s.progress } : null,
+      startedAt: s.startedAt, error: s.error
     };
   }
 

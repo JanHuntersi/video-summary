@@ -21,4 +21,13 @@ describe('SessionManager — state store', () => {
     m.createForTest({ title: 'A', stage: 'imported' });
     expect(calls).toBe(1);
   });
+
+  it('stops firing after unsubscribe', () => {
+    const m = new SessionManager();
+    let calls = 0;
+    const off = m.onChange(() => calls++);
+    off();
+    m.createForTest({ title: 'X', stage: 'imported' });
+    expect(calls).toBe(0);
+  });
 });
