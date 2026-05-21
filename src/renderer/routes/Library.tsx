@@ -59,11 +59,8 @@ export default function Library() {
       for (const absPath of videoFiles) {
         const title = absPath.split('/').pop()!.replace(/\.[^.]+$/, '');
         try {
-          const meta = await window.api.library.import(absPath, title);
-          toast.success(`Imported: ${meta.title}`);
-          if (settings?.autoTranscribe) {
-            await window.api.sessions.startTranscribe(meta.id).catch(() => {});
-          }
+          await window.api.sessions.startLocal(absPath, title);
+          toast.success(`Importing: ${title}`);
         } catch (err) {
           toast.error(`Import failed for ${title}: ${(err as Error).message}`);
         }

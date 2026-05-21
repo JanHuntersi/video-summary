@@ -19,7 +19,7 @@ async function buildConfig(): Promise<SessionManagerConfig> {
     defaultLlm: s.defaultLlm,
     summaryPrompt: s.prompts.summary,
     geminiApiKey,
-    // No ollamaBaseUrl in settings — OllamaProvider's default applies.
+    ollamaBaseUrl: s.ollama.baseUrl,
   };
 }
 

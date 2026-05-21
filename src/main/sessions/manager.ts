@@ -259,6 +259,10 @@ export class SessionManager {
         const meta = await readMeta(this.cfg!.libraryPath, videoId);
         const videoPath = join(this.cfg!.libraryPath, meta.sourceRelPath);
         const wav = await extractWav(videoPath);
+        if ((internal.stage as SessionStage) === 'cancelled') {
+          await fs.unlink(wav).catch(() => {});
+          return;
+        }
 
         const modelPath = await ensureModel(this.cfg!.modelsDir!, model);
         const handle = runTranscription({
@@ -298,6 +302,7 @@ export class SessionManager {
         internal.progress = null;
         this.emit();
 
+        if ((internal.stage as SessionStage) === 'cancelled') return;
         await this.maybeAutoSummarize(internal, segments);
       });
     } catch (e) {
