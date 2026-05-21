@@ -294,7 +294,7 @@ export default function VideoDetail() {
     if (!meta) return;
     setTranscribeDialog(null);
     try {
-      await window.api.transcription.start(meta.id, args.model, args.language);
+      await window.api.sessions.startTranscribe(meta.id, { model: args.model, language: args.language });
       toast.success(transcribeDialog === 're-transcribe' ? 'Re-transcription queued' : 'Transcription queued');
     } catch (e) {
       toast.error(`Could not start: ${(e as Error).message}`);

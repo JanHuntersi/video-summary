@@ -213,6 +213,37 @@ export class SessionManager {
   private async maybeAutoTranscribe(internal: InternalSession): Promise<void> {
     if (!this.cfg?.autoTranscribe || !internal.videoId) return;
     if (!this.cfg.modelsDir || !this.cfg.defaultModel) return; // misconfigured — skip silently
+    await this.runTranscribe(internal);
+  }
+
+  async startTranscribe(videoId: string, opts?: { model?: ModelName; language?: string }): Promise<string> {
+    if (!this.cfg) throw new Error('SessionManager: config not set');
+    const meta = await readMeta(this.cfg.libraryPath, videoId);
+    const id = makeId();
+    const internal: InternalSession = {
+      id,
+      title: meta.title,
+      stage: 'imported',
+      videoId,
+      progress: null,
+      startedAt: new Date().toISOString(),
+      error: null
+    };
+    this.sessions.set(id, internal);
+    this.emit();
+    // Force-run the transcribe path regardless of cfg.autoTranscribe, with optional overrides.
+    void this.runTranscribe(internal, { model: opts?.model, language: opts?.language });
+    return id;
+  }
+
+  private async runTranscribe(
+    internal: InternalSession,
+    overrides?: { model?: ModelName; language?: string }
+  ): Promise<void> {
+    if (!this.cfg || !internal.videoId) return;
+    const model = overrides?.model ?? this.cfg.defaultModel;
+    const language = overrides?.language ?? this.cfg.defaultLanguage ?? 'auto';
+    if (!this.cfg.modelsDir || !model) return;
     const videoId = internal.videoId;
 
     internal.stage = 'transcribing';
@@ -229,11 +260,11 @@ export class SessionManager {
         const videoPath = join(this.cfg!.libraryPath, meta.sourceRelPath);
         const wav = await extractWav(videoPath);
 
-        const modelPath = await ensureModel(this.cfg!.modelsDir!, this.cfg!.defaultModel!);
+        const modelPath = await ensureModel(this.cfg!.modelsDir!, model);
         const handle = runTranscription({
           modelPath,
           audioPath: wav,
-          language: this.cfg!.defaultLanguage ?? 'auto',
+          language,
           onProgress: (_i, partial) => {
             internal.progress = { phase: 'transcribe', message: partial };
             this.emit();
@@ -257,8 +288,8 @@ export class SessionManager {
         await updateMeta(this.cfg!.libraryPath, videoId, {
           status: 'transcribed',
           transcription: {
-            model: this.cfg!.defaultModel!,
-            language: this.cfg!.defaultLanguage ?? 'auto',
+            model,
+            language,
             completedAt: new Date().toISOString()
           }
         });

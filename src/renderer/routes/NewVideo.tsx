@@ -206,7 +206,7 @@ export default function NewVideo() {
     setTranscribeError(null);
     setTranscribing(true);
     setProgressText('Starting…');
-    await window.api.transcription.start(meta.id, model, language);
+    await window.api.sessions.startTranscribe(meta.id, { model, language });
   };
 
   const runSummarize = async () => {

@@ -206,3 +206,20 @@ describe('SessionManager.dismiss', () => {
     expect(() => m.dismiss(id)).toThrow(/cancel first/i);
   });
 });
+
+describe('SessionManager.startTranscribe', () => {
+  it('creates a session at imported and runs transcribe regardless of autoTranscribe flag', async () => {
+    const m = new SessionManager({
+      libraryPath: '/tmp/lib', importMode: 'copy',
+      autoTranscribe: false, autoSummarize: false,
+      modelsDir: '/tmp/models', defaultModel: 'small',
+      defaultLanguage: 'auto',
+      defaultLlm: { providerId: 'ollama', model: '' },
+      summaryPrompt: ''
+    });
+    const id = await m.startTranscribe('vid_xyz');
+    expect(m.get(id)?.videoId).toBe('vid_xyz');
+    await new Promise(r => setTimeout(r, 20));
+    expect(m.get(id)?.stage).toBe('transcribed');
+  });
+});

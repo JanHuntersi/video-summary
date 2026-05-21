@@ -12,10 +12,9 @@ export function Sidebar() {
   const [version, setVersion] = useState<string>('');
 
   useEffect(() => {
-    void window.api.transcription.getQueue().then(setQueue).catch(() => {});
+    // Queue display will be wired to sessions in Task 9; stub to empty for now.
+    setQueue([]);
     void window.api.system.getVersion().then(setVersion).catch(() => {});
-    const off = window.api.transcription.onQueueChanged(items => setQueue(items));
-    return () => { off(); };
   }, []);
 
   return (

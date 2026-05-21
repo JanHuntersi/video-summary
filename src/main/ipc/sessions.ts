@@ -54,4 +54,7 @@ export async function registerSessionsIpc(): Promise<void> {
   );
   ipcMain.handle('sessions:cancel', (_e, id: string) => manager!.cancel(id));
   ipcMain.handle('sessions:dismiss', (_e, id: string) => manager!.dismiss(id));
+  ipcMain.handle('sessions:startTranscribe', (_e, args: { videoId: string; model?: string; language?: string }) =>
+    manager!.startTranscribe(args.videoId, { model: args.model as any, language: args.language }).then(id => ({ id }))
+  );
 }

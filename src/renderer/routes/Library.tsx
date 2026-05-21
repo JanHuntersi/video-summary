@@ -62,7 +62,7 @@ export default function Library() {
           const meta = await window.api.library.import(absPath, title);
           toast.success(`Imported: ${meta.title}`);
           if (settings?.autoTranscribe) {
-            await window.api.transcription.start(meta.id, settings.whisper.defaultModel, 'auto').catch(() => {});
+            await window.api.sessions.startTranscribe(meta.id).catch(() => {});
           }
         } catch (err) {
           toast.error(`Import failed for ${title}: ${(err as Error).message}`);
