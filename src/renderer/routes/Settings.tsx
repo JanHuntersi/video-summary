@@ -83,11 +83,23 @@ export default function SettingsPage() {
           <code className="text-sm bg-slate-100 px-2 py-1 rounded">{settings.libraryPath}</code>
           <Button variant="outline" onClick={pickLibrary}>Change folder…</Button>
         </div>
-        <label className="flex items-center gap-2 mt-3 text-sm">
-          <input type="checkbox" checked={settings.importMode === 'move'}
-                 onChange={e => save({ importMode: e.target.checked ? 'move' : 'copy' })}/>
-          Move file on import (default: copy)
-        </label>
+        <fieldset className="mt-3">
+          <legend className="text-sm font-medium mb-1.5">Import mode</legend>
+          <div className="flex flex-col gap-1.5 text-sm">
+            <label className="flex items-center gap-2">
+              <input type="radio" name="importMode" value="copy"
+                     checked={settings.importMode === 'copy'}
+                     onChange={() => save({ importMode: 'copy' })}/>
+              <span>Copy <span className="text-slate-500">— keep originals on disk</span></span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="radio" name="importMode" value="move"
+                     checked={settings.importMode === 'move'}
+                     onChange={() => save({ importMode: 'move' })}/>
+              <span>Move <span className="text-slate-500">— delete originals after import</span></span>
+            </label>
+          </div>
+        </fieldset>
       </section>
 
       <section>

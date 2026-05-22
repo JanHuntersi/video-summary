@@ -96,3 +96,30 @@ export interface LlmStreamChunk {
   done: boolean;
   error?: string;
 }
+
+export type SessionStage =
+  | 'importing-url'
+  | 'importing-local'
+  | 'imported'
+  | 'transcribing'
+  | 'transcribed'
+  | 'summarizing'
+  | 'summarized'
+  | 'error'
+  | 'cancelled';
+
+export interface SessionProgress {
+  phase: string;
+  message: string;
+  pct?: number;
+}
+
+export interface SessionItem {
+  id: string;
+  title: string;
+  stage: SessionStage;
+  videoId: string | null;
+  progress: SessionProgress | null;
+  startedAt: string;
+  error: string | null;
+}
