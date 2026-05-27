@@ -57,4 +57,8 @@ export async function registerSessionsIpc(): Promise<void> {
   ipcMain.handle('sessions:startTranscribe', (_e, args: { videoId: string; model?: string; language?: string }) =>
     manager!.startTranscribe(args.videoId, { model: args.model as any, language: args.language }).then(id => ({ id }))
   );
+  ipcMain.handle('sessions:triggerTranscribe', (_e, args: { sessionId: string; model?: string; language?: string }) => {
+    manager!.triggerTranscribe(args.sessionId, { model: args.model as any, language: args.language });
+  });
+  ipcMain.handle('sessions:triggerSummarize', (_e, sessionId: string) => manager!.triggerSummarize(sessionId));
 }

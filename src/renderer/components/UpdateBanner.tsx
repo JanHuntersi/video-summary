@@ -90,7 +90,7 @@ export function UpdateBanner() {
         disabled={downloading}
         className="gap-1.5 h-7 px-2 text-xs"
         title={
-          process.platform === 'darwin'
+          navigator.userAgent.includes('Mac')
             ? 'Downloads the .dmg to ~/Downloads and opens Finder. Drag the new app into Applications — no xattr re-run needed because the in-app download bypasses macOS quarantine.'
             : 'Downloads the new installer'
         }

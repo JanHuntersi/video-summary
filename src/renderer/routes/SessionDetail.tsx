@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, Loader2 } from 'lucide-react';
 import { Button } from '@renderer/components/ui/button';
+import { TranscribeDialog, type WhisperModel } from '@renderer/components/TranscribeDialog';
+import { toast } from '@renderer/components/Toast';
+import { useSettings } from '@renderer/stores/settings';
 import { cn } from '@renderer/lib/cn';
 import type { SessionItem, SessionStage } from '@shared/types';
 
@@ -30,7 +33,9 @@ const TERMINAL: SessionStage[] = ['summarized', 'transcribed', 'cancelled', 'err
 export default function SessionDetail() {
   const { id = '' } = useParams<{ id: string }>();
   const nav = useNavigate();
+  const { settings } = useSettings();
   const [s, setS] = useState<SessionItem | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     void window.api.sessions.get(id).then(setS);
@@ -42,6 +47,27 @@ export default function SessionDetail() {
   }, [id]);
 
   if (!s) return <div className="p-8">Session not found.</div>;
+
+  const startTranscribe = async (args: { model: WhisperModel; language: string }) => {
+    setDialogOpen(false);
+    try {
+      await window.api.sessions.triggerTranscribe(s.id, { model: args.model, language: args.language });
+      toast.success('Transcription started');
+    } catch (e) {
+      toast.error(`Could not start: ${(e as Error).message}`);
+    }
+  };
+
+  const startSummarize = async () => {
+    try {
+      await window.api.sessions.triggerSummarize(s.id);
+      toast.success('Summary started');
+    } catch (e) {
+      toast.error(`Could not start: ${(e as Error).message}`);
+    }
+  };
+
+  const llmConfigured = Boolean(settings?.defaultLlm?.providerId && settings?.defaultLlm?.model);
 
   const importDone = s.stage !== 'importing-local' && s.stage !== 'importing-url';
   const transcribeDone = (['transcribed', 'summarizing', 'summarized'] as SessionStage[]).includes(s.stage);
@@ -67,8 +93,8 @@ export default function SessionDetail() {
         Session {s.id} · started {new Date(s.startedAt).toLocaleTimeString()}
       </p>
 
-      <div className="relative">
-        <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-slate-200" />
+      <div className="relative pb-4">
+        <div className="absolute left-4 top-4 h-[calc(100%-3rem)] w-0.5 bg-slate-200" />
 
         <section className="relative mb-8 grid grid-cols-[2rem_1fr] gap-x-4 items-start">
           <StageBullet index={1} state={stage1} />
@@ -94,6 +120,12 @@ export default function SessionDetail() {
                 {s.progress?.message || 'Working…'}
               </div>
             )}
+            {s.stage === 'imported' && s.videoId && (
+              <div className="space-y-2">
+                <div className="text-sm text-slate-600">Ready to transcribe.</div>
+                <Button onClick={() => setDialogOpen(true)}>Start transcription</Button>
+              </div>
+            )}
             {transcribeDone && <div className="text-sm text-green-700">Transcription complete.</div>}
           </div>
         </section>
@@ -110,6 +142,18 @@ export default function SessionDetail() {
                 <Loader2 size={14} className="inline animate-spin mr-1.5" /> Generating summary…
               </div>
             )}
+            {s.stage === 'transcribed' && (
+              <div className="space-y-2">
+                <div className="text-sm text-slate-600">Ready to summarize.</div>
+                <Button
+                  onClick={startSummarize}
+                  disabled={!llmConfigured}
+                  title={llmConfigured ? undefined : 'Set a default LLM model in Settings → Workflow'}
+                >
+                  Start summary
+                </Button>
+              </div>
+            )}
             {summarizeDone && <div className="text-sm text-green-700">Summary saved.</div>}
           </div>
         </section>
@@ -119,18 +163,28 @@ export default function SessionDetail() {
             {s.error}
           </div>
         )}
-
-        <div className="flex gap-2 mt-6">
-          {s.videoId && (
-            <Button variant="outline" onClick={() => nav(`/video/${s.videoId}`)}>
-              Open video
-            </Button>
-          )}
-          {!TERMINAL.includes(s.stage)
-            ? <Button variant="outline" onClick={() => window.api.sessions.cancel(s.id)}>Cancel session</Button>
-            : <Button variant="outline" onClick={() => window.api.sessions.dismiss(s.id).then(() => nav('/'))}>Dismiss</Button>}
-        </div>
       </div>
+
+      <div className="flex gap-2 mt-6">
+        {s.videoId && (
+          <Button variant="outline" onClick={() => nav(`/video/${s.videoId}`)}>
+            Open video
+          </Button>
+        )}
+        {!TERMINAL.includes(s.stage)
+          ? <Button variant="outline" onClick={() => window.api.sessions.cancel(s.id)}>Cancel session</Button>
+          : <Button variant="outline" onClick={() => window.api.sessions.dismiss(s.id).then(() => nav('/'))}>Dismiss</Button>}
+      </div>
+
+      {dialogOpen && settings && (
+        <TranscribeDialog
+          mode="transcribe"
+          defaultModel={settings.whisper.defaultModel as WhisperModel}
+          defaultLanguage="auto"
+          onCancel={() => setDialogOpen(false)}
+          onStart={startTranscribe}
+        />
+      )}
     </div>
   );
 }
