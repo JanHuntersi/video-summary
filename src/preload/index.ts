@@ -74,6 +74,10 @@ const api = {
     dismiss: (id: string): Promise<void> => ipcRenderer.invoke('sessions:dismiss', id),
     startTranscribe: (videoId: string, opts?: { model?: string; language?: string }): Promise<{ id: string }> =>
       ipcRenderer.invoke('sessions:startTranscribe', { videoId, model: opts?.model, language: opts?.language }),
+    triggerTranscribe: (sessionId: string, opts?: { model?: string; language?: string }): Promise<void> =>
+      ipcRenderer.invoke('sessions:triggerTranscribe', { sessionId, model: opts?.model, language: opts?.language }),
+    triggerSummarize: (sessionId: string): Promise<void> =>
+      ipcRenderer.invoke('sessions:triggerSummarize', sessionId),
     onChange: (fn: (items: SessionItem[]) => void) => {
       const listener = (_: unknown, p: { items: SessionItem[] }) => fn(p.items);
       ipcRenderer.on('sessions:changed', listener);

@@ -236,6 +236,16 @@ export class SessionManager {
     return id;
   }
 
+  triggerTranscribe(sessionId: string, opts?: { model?: ModelName; language?: string }): void {
+    const internal = this.sessions.get(sessionId);
+    if (!internal) throw new Error(`Session ${sessionId} not found`);
+    if (internal.stage !== 'imported') {
+      throw new Error(`Session is in stage "${internal.stage}", cannot start transcription`);
+    }
+    if (!internal.videoId) throw new Error('Session has no videoId yet');
+    void this.runTranscribe(internal, { model: opts?.model, language: opts?.language });
+  }
+
   private async runTranscribe(
     internal: InternalSession,
     overrides?: { model?: ModelName; language?: string }
@@ -316,6 +326,26 @@ export class SessionManager {
 
   private async maybeAutoSummarize(internal: InternalSession, segments: TranscriptSegment[]): Promise<void> {
     if (!this.cfg?.autoSummarize) return;
+    await this.runSummarize(internal, segments);
+  }
+
+  async triggerSummarize(sessionId: string): Promise<void> {
+    const internal = this.sessions.get(sessionId);
+    if (!internal) throw new Error(`Session ${sessionId} not found`);
+    if (internal.stage !== 'transcribed') {
+      throw new Error(`Session is in stage "${internal.stage}", cannot start summary`);
+    }
+    if (!internal.videoId) throw new Error('Session has no videoId');
+    if (!this.cfg) throw new Error('SessionManager: config not set');
+    const meta = await readMeta(this.cfg.libraryPath, internal.videoId);
+    const folder = join(this.cfg.libraryPath, meta.folderName);
+    const raw = await fs.readFile(join(folder, 'transcript.json'), 'utf8');
+    const segments = JSON.parse(raw) as TranscriptSegment[];
+    void this.runSummarize(internal, segments);
+  }
+
+  private async runSummarize(internal: InternalSession, segments: TranscriptSegment[]): Promise<void> {
+    if (!this.cfg) return;
     if (!this.cfg.defaultLlm?.providerId || !this.cfg.defaultLlm.model) return;
     if (!internal.videoId) return;
     const videoId = internal.videoId;
