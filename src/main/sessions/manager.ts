@@ -13,6 +13,7 @@ import { TranscriptionScheduler } from './scheduler';
 import { OllamaProvider } from '@main/llm/ollama';
 import { GeminiProvider } from '@main/llm/gemini';
 import type { LlmProvider } from '@main/llm/types';
+import { formatTranscriptForLlm } from '@shared/transcriptFormat';
 
 interface InternalSession extends SessionItem {
   // Internal handles set by orchestration methods later (Tasks 4-6). Kept off the public type.
@@ -355,7 +356,7 @@ export class SessionManager {
     this.emit();
 
     try {
-      const transcriptText = segments.map(s => `[${Math.floor(s.start)}s] ${s.text}`).join('\n');
+      const transcriptText = formatTranscriptForLlm(segments);
 
       let provider: LlmProvider;
       if (this.cfg.defaultLlm.providerId === 'gemini') {

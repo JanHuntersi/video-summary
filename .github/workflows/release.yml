@@ -75,6 +75,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Sync package.json version to tag
+        # The release version is taken from the git tag — the single source of
+        # truth. This prevents shipping artifacts mislabeled with a stale
+        # package.json version (e.g. v0.1.13/v0.1.14 were built as 0.1.12 because
+        # package.json was never bumped before tagging). Skipped on dry-runs.
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            VERSION="${TAG#v}"
+            echo "Setting package.json version to $VERSION (from tag $TAG)"
+            npm version "$VERSION" --no-git-tag-version --allow-same-version
+          else
+            echo "No release tag (dry-run) — leaving package.json version as-is"
+          fi
+
       - name: Build bundle (electron-vite)
         run: npm run build
 
