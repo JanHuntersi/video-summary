@@ -123,3 +123,20 @@ export interface SessionItem {
   startedAt: string;
   error: string | null;
 }
+
+export interface PlayerContext {
+  videoUrl: string;
+  title: string;
+  startTime: number;
+}
+
+export type PlayerCommand =
+  | { type: 'seek'; t: number; play?: boolean }
+  | { type: 'play' }
+  | { type: 'pause' };
+
+export interface PlayerState {
+  currentTime: number;
+  duration: number;
+  paused: boolean;
+}

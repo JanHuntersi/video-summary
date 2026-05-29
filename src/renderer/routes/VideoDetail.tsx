@@ -1,7 +1,8 @@
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { Pencil, Sparkles, ListChecks, Loader2, RotateCcw, Captions } from 'lucide-react';
+import { Pencil, Sparkles, ListChecks, Loader2, RotateCcw, Captions, ExternalLink } from 'lucide-react';
 import { useVideo } from '@renderer/hooks/useVideo';
+import { usePlayback } from '@renderer/hooks/usePlayback';
 import { TranscriptView } from '@renderer/components/TranscriptView';
 import { SummaryView } from '@renderer/components/SummaryView';
 import { ChatPanel } from '@renderer/components/ChatPanel';
@@ -38,9 +39,10 @@ export default function VideoDetail() {
   const [paths, setPaths] = useState<{ absSourcePath: string; absFolder: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [transcribeDialog, setTranscribeDialog] = useState<null | 'transcribe' | 're-transcribe'>(null);
-  const [currentTime, setCurrentTime] = useState(0);
   const [metaReady, setMetaReady] = useState(false);
   const seekAppliedRef = useRef(false);
+  const playback = usePlayback({ videoRef, videoId: id ?? '', videoUrl, title: meta?.title ?? '' });
+  const currentTime = playback.currentTime;
 
   // Quick summary
   const [quickReq, setQuickReq] = useState<string | null>(null);
@@ -175,36 +177,35 @@ export default function VideoDetail() {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const v = videoRef.current;
-      if (!v) return;
       const segs = transcript ?? [];
+      const t = playback.nowTime();
       const findActiveIdx = () => {
         for (let i = 0; i < segs.length; i++) {
-          if (v.currentTime >= segs[i].start && v.currentTime < segs[i].end) return i;
+          if (t >= segs[i].start && t < segs[i].end) return i;
         }
         let last = -1;
         for (let i = 0; i < segs.length; i++) {
-          if (segs[i].start <= v.currentTime) last = i; else break;
+          if (segs[i].start <= t) last = i; else break;
         }
         return last;
       };
       if (e.key === ' ') {
         e.preventDefault();
-        if (v.paused) void v.play().catch(() => {}); else v.pause();
+        playback.togglePlay();
       } else if (e.key.toLowerCase() === 'j') {
         e.preventDefault();
-        v.currentTime = Math.max(0, v.currentTime - 5);
+        playback.nudge(-5);
       } else if (e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        v.currentTime = Math.min((v.duration || Infinity), v.currentTime + 5);
+        playback.nudge(5);
       } else if (e.key === 'ArrowLeft' && segs.length) {
         e.preventDefault();
         const idx = findActiveIdx();
-        if (idx > 0) { v.currentTime = segs[idx - 1].start; void v.play().catch(() => {}); }
+        if (idx > 0) playback.seek(segs[idx - 1].start, { play: true });
       } else if (e.key === 'ArrowRight' && segs.length) {
         e.preventDefault();
         const idx = findActiveIdx();
-        if (idx >= 0 && idx + 1 < segs.length) { v.currentTime = segs[idx + 1].start; void v.play().catch(() => {}); }
+        if (idx >= 0 && idx + 1 < segs.length) playback.seek(segs[idx + 1].start, { play: true });
       } else if (e.key.toLowerCase() === 't') {
         e.preventDefault();
         setTab('transcript');
@@ -213,16 +214,11 @@ export default function VideoDetail() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [transcript]);
+  }, [transcript, playback.nowTime, playback.togglePlay, playback.nudge, playback.seek]);
 
   if (!meta) return <div className="p-4">Loading…</div>;
 
-  const onSeek = (sec: number) => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.currentTime = sec;
-    void v.play().catch(() => {});
-  };
+  const onSeek = (sec: number) => playback.seek(sec, { play: true });
 
   const regenerate = async () => {
     if (!transcript || !settings) return;
@@ -401,23 +397,44 @@ export default function VideoDetail() {
 
       <div className="flex-1 flex overflow-hidden">
         <div className="w-2/5 flex flex-col border-r">
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            controls
-            onLoadedMetadata={() => setMetaReady(true)}
-            onTimeUpdate={e => setCurrentTime((e.target as HTMLVideoElement).currentTime)}
-            onError={e => {
-              const err = (e.target as HTMLVideoElement).error;
-              const codeMap: Record<number, string> = {
-                1: 'aborted', 2: 'network', 3: 'decode', 4: 'src not supported'
-              };
-              const detail = err ? `MediaError code ${err.code} (${codeMap[err.code] ?? '?'}): ${err.message || 'no message'}` : 'unknown';
-              console.error('[video] playback error:', detail, 'src=', videoUrl);
-              toast.error(`Cannot play video — ${detail}`);
-            }}
-            className="w-full bg-black aspect-video"
-          />
+          <div className="relative">
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              controls
+              onLoadedMetadata={() => setMetaReady(true)}
+              onTimeUpdate={e => playback.onLocalTimeUpdate((e.target as HTMLVideoElement).currentTime)}
+              onError={e => {
+                const err = (e.target as HTMLVideoElement).error;
+                const codeMap: Record<number, string> = {
+                  1: 'aborted', 2: 'network', 3: 'decode', 4: 'src not supported'
+                };
+                const detail = err ? `MediaError code ${err.code} (${codeMap[err.code] ?? '?'}): ${err.message || 'no message'}` : 'unknown';
+                console.error('[video] playback error:', detail, 'src=', videoUrl);
+                toast.error(`Cannot play video — ${detail}`);
+              }}
+              className={`w-full bg-black aspect-video ${playback.isPopped ? 'hidden' : ''}`}
+            />
+            {!playback.isPopped && (
+              <button
+                type="button"
+                onClick={playback.popOut}
+                title="Open in external window"
+                className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white hover:bg-black/80"
+              >
+                <ExternalLink size={16} />
+              </button>
+            )}
+            {playback.isPopped && (
+              <div className="w-full bg-black aspect-video flex flex-col items-center justify-center gap-3 text-slate-300">
+                <ExternalLink size={28} className="opacity-60" />
+                <p className="text-sm">Playing in external window</p>
+                <Button variant="outline" onClick={playback.closePop} className="gap-1.5 bg-transparent text-slate-200 border-slate-600 hover:bg-slate-800">
+                  Return to this window
+                </Button>
+              </div>
+            )}
+          </div>
           <div className="flex border-b text-sm">
             {(['transcript', 'summary', 'highlights', 'notes', 'info'] as const).map(t => (
               <button

@@ -1,6 +1,6 @@
 // src/preload/index.ts
 import { contextBridge, ipcRenderer } from 'electron';
-import type { AppSettings, ChatHistory, ChatMessage, ChatRecord, ChatSummary, IndexEntry, LlmProviderId, TranscriptSegment, VideoMeta, SessionItem } from '../shared/types';
+import type { AppSettings, ChatHistory, ChatMessage, ChatRecord, ChatSummary, IndexEntry, LlmProviderId, TranscriptSegment, VideoMeta, SessionItem, PlayerCommand, PlayerContext, PlayerState } from '../shared/types';
 
 const api = {
   settings: {
@@ -135,6 +135,33 @@ const api = {
     },
     revealInFinder: (absPath: string): Promise<void> => ipcRenderer.invoke('system:revealInFinder', absPath),
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:openExternal', url)
+  },
+  player: {
+    open: (id: string, context: PlayerContext): Promise<void> => ipcRenderer.invoke('player:open', { id, context }),
+    close: (): Promise<void> => ipcRenderer.invoke('player:close'),
+    getContext: (): Promise<PlayerContext | null> => ipcRenderer.invoke('player:getContext'),
+    // Owner window → player window.
+    sendCommand: (cmd: PlayerCommand): void => ipcRenderer.send('player:command', cmd),
+    // Player window → owner window.
+    reportState: (state: PlayerState): void => ipcRenderer.send('player:report', state),
+    // Player window listens for commands.
+    onCommand: (fn: (cmd: PlayerCommand) => void) => {
+      const listener = (_: unknown, cmd: PlayerCommand) => fn(cmd);
+      ipcRenderer.on('player:command', listener);
+      return () => ipcRenderer.removeListener('player:command', listener);
+    },
+    // Owner window listens for state reports.
+    onState: (fn: (state: PlayerState) => void) => {
+      const listener = (_: unknown, state: PlayerState) => fn(state);
+      ipcRenderer.on('player:state', listener);
+      return () => ipcRenderer.removeListener('player:state', listener);
+    },
+    // Owner window learns the pop-out closed.
+    onClosed: (fn: () => void) => {
+      const listener = () => fn();
+      ipcRenderer.on('player:closed', listener);
+      return () => ipcRenderer.removeListener('player:closed', listener);
+    }
   }
 };
 

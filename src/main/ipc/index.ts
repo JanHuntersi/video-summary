@@ -6,6 +6,7 @@ import { registerYtdlpIpc } from './ytdlp';
 import { registerSystemIpc } from './system';
 import { registerModelsIpc } from './models';
 import { registerSessionsIpc } from './sessions';
+import { registerPlayerIpc } from './player';
 
 export async function registerAllIpc() {
   registerSettingsIpc();
@@ -14,5 +15,6 @@ export async function registerAllIpc() {
   registerYtdlpIpc();
   registerSystemIpc();
   registerModelsIpc();
+  registerPlayerIpc();
   await registerSessionsIpc();
 }
