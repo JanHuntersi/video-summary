@@ -45,7 +45,8 @@ export interface IndexEntry {
 
 export interface AppSettings {
   libraryPath: string;
-  importMode: 'copy' | 'move';
+  /** When true, delete the source file after importing it into the library. Default false (keep originals). */
+  deleteOriginals: boolean;
   whisper: { defaultModel: 'tiny' | 'base' | 'small' | 'medium' | 'turbo' | 'large'; modelsDir: string };
   ollama: { baseUrl: string };
   gemini: { hasKey: boolean };          // actual key in keychain

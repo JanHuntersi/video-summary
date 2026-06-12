@@ -134,7 +134,9 @@ const api = {
       return () => ipcRenderer.removeListener('system:downloadProgress', listener);
     },
     revealInFinder: (absPath: string): Promise<void> => ipcRenderer.invoke('system:revealInFinder', absPath),
-    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:openExternal', url)
+    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('system:openExternal', url),
+    saveTextFile: (defaultName: string, content: string): Promise<{ saved: boolean; path?: string }> =>
+      ipcRenderer.invoke('system:saveTextFile', { defaultName, content })
   },
   player: {
     open: (id: string, context: PlayerContext): Promise<void> => ipcRenderer.invoke('player:open', { id, context }),

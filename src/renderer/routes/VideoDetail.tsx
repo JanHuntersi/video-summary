@@ -1,9 +1,10 @@
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { Pencil, Sparkles, ListChecks, Loader2, RotateCcw, Captions, ExternalLink } from 'lucide-react';
+import { Pencil, Sparkles, ListChecks, Loader2, RotateCcw, Captions, ExternalLink, Copy, FileText } from 'lucide-react';
 import { useVideo } from '@renderer/hooks/useVideo';
 import { usePlayback } from '@renderer/hooks/usePlayback';
 import { TranscriptView } from '@renderer/components/TranscriptView';
+import { TranscriptTextModal } from '@renderer/components/TranscriptTextModal';
 import { SummaryView } from '@renderer/components/SummaryView';
 import { ChatPanel } from '@renderer/components/ChatPanel';
 import { MarkdownWithTimestamps } from '@renderer/components/MarkdownWithTimestamps';
@@ -39,6 +40,7 @@ export default function VideoDetail() {
   const [paths, setPaths] = useState<{ absSourcePath: string; absFolder: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [transcribeDialog, setTranscribeDialog] = useState<null | 'transcribe' | 're-transcribe'>(null);
+  const [showFullText, setShowFullText] = useState(false);
   const [metaReady, setMetaReady] = useState(false);
   const seekAppliedRef = useRef(false);
   const playback = usePlayback({ videoRef, videoId: id ?? '', videoUrl, title: meta?.title ?? '' });
@@ -219,6 +221,16 @@ export default function VideoDetail() {
   if (!meta) return <div className="p-4">Loading…</div>;
 
   const onSeek = (sec: number) => playback.seek(sec, { play: true });
+
+  const copyTranscript = async () => {
+    if (!transcript) return;
+    try {
+      await navigator.clipboard.writeText(transcript.map(s => s.text).join('\n'));
+      toast.success('Transcript copied');
+    } catch (e) {
+      toast.error(`Copy failed: ${(e as Error).message}`);
+    }
+  };
 
   const regenerate = async () => {
     if (!transcript || !settings) return;
@@ -447,7 +459,29 @@ export default function VideoDetail() {
             ))}
           </div>
           <div className="flex-1 overflow-hidden">
-            {tab === 'transcript' && transcript && <TranscriptView segments={transcript} currentTime={currentTime} onSeek={onSeek} />}
+            {tab === 'transcript' && transcript && (
+              <div className="h-full flex flex-col">
+                <div className="flex items-center justify-end gap-1 px-2 py-1 border-b">
+                  <button
+                    onClick={copyTranscript}
+                    title="Copy the full transcript text"
+                    className="flex items-center gap-1 text-xs text-slate-600 hover:bg-slate-100 rounded px-2 py-1"
+                  >
+                    <Copy size={13} /> Copy
+                  </button>
+                  <button
+                    onClick={() => setShowFullText(true)}
+                    title="View, copy or export the full transcript"
+                    className="flex items-center gap-1 text-xs text-slate-600 hover:bg-slate-100 rounded px-2 py-1"
+                  >
+                    <FileText size={13} /> Full text
+                  </button>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <TranscriptView segments={transcript} currentTime={currentTime} onSeek={onSeek} />
+                </div>
+              </div>
+            )}
             {tab === 'transcript' && !transcript && <div className="p-3 text-sm text-slate-500">No transcript.</div>}
             {tab === 'summary' && <SummaryView markdown={regenReq ? regenBuf : summary} onRegenerate={regenerate} onSeek={onSeek} />}
             {tab === 'highlights' && (
@@ -476,6 +510,9 @@ export default function VideoDetail() {
         </div>
       </div>
 
+      {showFullText && transcript && (
+        <TranscriptTextModal segments={transcript} title={meta.title} onClose={() => setShowFullText(false)} />
+      )}
       {editing && <EditDetailsModal meta={meta} onClose={() => setEditing(false)} onSave={saveMeta} onDelete={deleteVideo} />}
       {transcribeDialog && settings && (
         <TranscribeDialog

@@ -18,7 +18,7 @@ export function defaultSettings(): AppSettings {
   const userData = app?.getPath ? app.getPath('userData') : join(homedir(), '.video-summary');
   return {
     libraryPath: join(homedir(), 'Videos', 'VideoSummary'),
-    importMode: 'copy',
+    deleteOriginals: false,
     // 'small' is the friendliest default: ~480 MB one-time download, decent
     // quality for major languages. Users transcribing Slovenian / Croatian /
     // Serbian get an in-dialog warning suggesting 'turbo' (~1.5 GB) for those

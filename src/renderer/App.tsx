@@ -1,7 +1,9 @@
+import { useEffect } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { ToastContainer } from './components/Toast';
 import { UpdateBanner } from './components/UpdateBanner';
+import { useSettings } from './stores/settings';
 import Library from './routes/Library';
 import VideoDetail from './routes/VideoDetail';
 import SettingsPage from './routes/Settings';
@@ -10,6 +12,12 @@ import SessionDetail from './routes/SessionDetail';
 import PlayerWindow from './routes/PlayerWindow';
 
 function Shell() {
+  // Load settings once on startup so provider pickers (e.g. Gemini) render correctly
+  // on any entry route, not just the Library home. Reads the persisted hasKey flag —
+  // does NOT probe the keychain, so no macOS auth prompt.
+  const loadSettings = useSettings(s => s.load);
+  useEffect(() => { void loadSettings(); }, [loadSettings]);
+
   return (
     <div className="h-full flex flex-col">
       <UpdateBanner />
