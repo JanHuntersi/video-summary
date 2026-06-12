@@ -10,7 +10,7 @@ async function buildConfig(): Promise<SessionManagerConfig> {
   const geminiApiKey = (await getGeminiKey()) ?? undefined;
   return {
     libraryPath: s.libraryPath,
-    importMode: s.importMode,
+    importMode: s.deleteOriginals ? 'move' : 'copy',
     autoTranscribe: s.autoTranscribe,
     autoSummarize: s.autoSummarize,
     modelsDir: s.whisper.modelsDir,

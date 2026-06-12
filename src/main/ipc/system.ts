@@ -1,4 +1,4 @@
-import { ipcMain, app, shell } from 'electron';
+import { ipcMain, app, shell, dialog, BrowserWindow } from 'electron';
 import { promises as fs, createWriteStream } from 'fs';
 import { join } from 'path';
 import { Readable } from 'stream';
@@ -93,5 +93,17 @@ export function registerSystemIpc() {
 
   ipcMain.handle('system:openExternal', async (_e, url: string) => {
     await shell.openExternal(url);
+  });
+
+  ipcMain.handle('system:saveTextFile', async (e, args: { defaultName: string; content: string }) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const opts: Electron.SaveDialogOptions = {
+      defaultPath: join(app.getPath('downloads'), args.defaultName),
+      filters: [{ name: 'Text', extensions: ['txt'] }]
+    };
+    const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts);
+    if (res.canceled || !res.filePath) return { saved: false };
+    await fs.writeFile(res.filePath, args.content, 'utf8');
+    return { saved: true, path: res.filePath };
   });
 }

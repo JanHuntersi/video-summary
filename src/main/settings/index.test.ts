@@ -27,16 +27,34 @@ describe('settings', () => {
   it('returns defaults on first load', async () => {
     const { loadSettings } = await import('./index');
     const s = await loadSettings();
-    expect(s.importMode).toBe('copy');
+    expect(s.deleteOriginals).toBe(false);
     expect(s.whisper.defaultModel).toBe('small');
     expect(s.gemini.hasKey).toBe(false);
   });
 
   it('persists and reloads partial updates', async () => {
     const { loadSettings, saveSettings } = await import('./index');
-    await saveSettings({ importMode: 'move' });
+    await saveSettings({ deleteOriginals: true });
     const s = await loadSettings();
-    expect(s.importMode).toBe('move');
+    expect(s.deleteOriginals).toBe(true);
     expect(existsSync(join(dir, 'settings.json'))).toBe(true);
+  });
+
+  it('migrates legacy importMode="move" to deleteOriginals=true', async () => {
+    const { writeFileSync } = await import('fs');
+    writeFileSync(join(dir, 'settings.json'), JSON.stringify({ importMode: 'move' }));
+    const { loadSettings } = await import('./index');
+    const s = await loadSettings();
+    expect(s.deleteOriginals).toBe(true);
+  });
+
+  it('persists gemini.hasKey so provider pickers see it without re-probing the keychain', async () => {
+    const { loadSettings, saveSettings } = await import('./index');
+    await saveSettings({ gemini: { hasKey: true } });
+    const s = await loadSettings();
+    expect(s.gemini.hasKey).toBe(true);
+    // And it survives unrelated saves.
+    await saveSettings({ deleteOriginals: true });
+    expect((await loadSettings()).gemini.hasKey).toBe(true);
   });
 });

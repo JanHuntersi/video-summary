@@ -57,7 +57,7 @@ export function registerLibraryIpc() {
         libraryPath: s.libraryPath,
         sourceAbsPath,
         title,
-        importMode: s.importMode,
+        importMode: s.deleteOriginals ? 'move' : 'copy',
         durationSec: duration,
         thumbnailBytes: thumb
       });
