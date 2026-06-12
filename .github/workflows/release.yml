@@ -36,7 +36,11 @@ jobs:
               dist/*.dmg
               dist/*.zip
           - id: windows
-            os: windows-latest
+            # Pinned to windows-2022 (VS 2022). The windows-latest image moved to a
+            # newer Visual Studio that the bundled node-gyp 9.x can't detect, breaking
+            # the smart-whisper native rebuild ("could not find a version of Visual
+            # Studio 2017 or newer"). 2022 restores the toolchain that shipped v0.1.15.
+            os: windows-2022
             builder-flags: --win
             artifact-glob: |
               dist/*.exe
