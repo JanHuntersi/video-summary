@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { loadSettings, getGeminiKey } from '@main/settings';
 import { OllamaProvider } from '@main/llm/ollama';
 import { GeminiProvider } from '@main/llm/gemini';
+import { ClaudeCliProvider } from '@main/llm/claude-cli';
 import type { LlmProvider } from '@main/llm/types';
 import { buildChatContext } from '@main/llm/context';
 import type { ChatMessage, LlmProviderId, LlmStreamChunk } from '@shared/types';
@@ -13,6 +14,7 @@ const inflight = new Map<string, AbortController>();
 async function buildProvider(id: LlmProviderId): Promise<LlmProvider> {
   const s = await loadSettings();
   if (id === 'ollama') return new OllamaProvider(s.ollama.baseUrl);
+  if (id === 'claude-cli') return new ClaudeCliProvider();
   const key = await getGeminiKey();
   if (!key) throw new Error('Gemini API key not configured');
   return new GeminiProvider(key);
@@ -20,6 +22,7 @@ async function buildProvider(id: LlmProviderId): Promise<LlmProvider> {
 
 function tokenLimitFor(provider: LlmProviderId, model: string): number {
   if (provider === 'gemini') return 1_000_000;
+  if (provider === 'claude-cli') return 180_000;
   if (model.includes('llama3') || model.includes('llama-3')) return 8_192;
   return 4_096;
 }

@@ -10,6 +10,7 @@ export default function SettingsPage() {
   const [keyInput, setKeyInput] = useState('');
   const [ollamaStatus, setOllamaStatus] = useState<string>('');
   const [geminiStatus, setGeminiStatus] = useState<string>('');
+  const [claudeStatus, setClaudeStatus] = useState<string>('');
   const [wfModels, setWfModels] = useState<string[]>([]);
   const [version, setVersion] = useState<string>('');
   const [updateStatus, setUpdateStatus] = useState<string>('');
@@ -59,6 +60,11 @@ export default function SettingsPage() {
   const testGemini = async () => {
     const r = await window.api.llm.testConnection('gemini');
     setGeminiStatus(r.ok ? `OK — ${r.detail}` : `Error: ${r.detail}`);
+  };
+  const testClaude = async () => {
+    setClaudeStatus('Testing…');
+    const r = await window.api.llm.testConnection('claude-cli');
+    setClaudeStatus(r.ok ? `OK — ${r.detail}` : `Error: ${r.detail}`);
   };
   const saveGeminiKey = async () => {
     await window.api.settings.setGeminiKey(keyInput);
@@ -132,6 +138,7 @@ export default function SettingsPage() {
                 className="border rounded px-2 py-1">
                 <option value="ollama">Ollama</option>
                 {settings.gemini.hasKey && <option value="gemini">Gemini</option>}
+                <option value="claude-cli">Claude (subscription)</option>
               </select>
             </label>
             <label>Model&nbsp;
@@ -166,6 +173,17 @@ export default function SettingsPage() {
           <Button variant="outline" onClick={testGemini} disabled={!settings.gemini.hasKey}>Test</Button>
         </div>
         <div className="text-sm mt-1 text-slate-600">{geminiStatus}</div>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold mb-2">Claude (subscription)</h2>
+        <p className="text-sm text-slate-600 mb-2">
+          Uses your Claude Pro/Max subscription through the locally installed Claude Code CLI — no API key needed.
+          Install Claude Code and run <code className="bg-slate-100 px-1 rounded">claude</code> once to log in.
+          Usage counts toward your subscription limits.
+        </p>
+        <Button variant="outline" onClick={testClaude}>Test</Button>
+        <div className="text-sm mt-1 text-slate-600">{claudeStatus}</div>
       </section>
 
       <section>

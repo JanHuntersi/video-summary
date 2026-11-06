@@ -15,6 +15,8 @@ interface Props {
   onSeek?: (sec: number) => void;
 }
 
+const PROVIDER_LABEL: Record<LlmProviderId, string> = { ollama: 'Ollama', gemini: 'Gemini', 'claude-cli': 'Claude CLI' };
+
 export function ChatPanel({ videoId, transcript, summary, onSeek }: Props) {
   const { settings } = useSettings();
   const [providerId, setProviderId] = useState<LlmProviderId>('ollama');
@@ -68,7 +70,7 @@ export function ChatPanel({ videoId, transcript, summary, onSeek }: Props) {
       .then(setModels)
       .catch(e => {
         setModels([]);
-        toast.error(`${providerId === 'ollama' ? 'Ollama' : 'Gemini'} unreachable: ${(e as Error).message}`);
+        toast.error(`${PROVIDER_LABEL[providerId]} unreachable: ${(e as Error).message}`);
       });
   }, [providerId]);
 
@@ -226,6 +228,7 @@ export function ChatPanel({ videoId, transcript, summary, onSeek }: Props) {
                   className="border rounded px-2 py-1">
             <option value="ollama">Ollama</option>
             {settings?.gemini.hasKey && <option value="gemini">Gemini</option>}
+            <option value="claude-cli">Claude (subscription)</option>
           </select>
           <select value={model} onChange={e => setModel(e.target.value)} className="border rounded px-2 py-1 flex-1">
             <option value="">— model —</option>

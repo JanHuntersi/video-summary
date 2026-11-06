@@ -12,6 +12,7 @@ import type { ModelName } from '@main/transcription/models';
 import { TranscriptionScheduler } from './scheduler';
 import { OllamaProvider } from '@main/llm/ollama';
 import { GeminiProvider } from '@main/llm/gemini';
+import { ClaudeCliProvider } from '@main/llm/claude-cli';
 import type { LlmProvider } from '@main/llm/types';
 import { formatTranscriptForLlm } from '@shared/transcriptFormat';
 
@@ -364,6 +365,8 @@ export class SessionManager {
           throw new Error('Gemini API key missing — pass geminiApiKey in SessionManagerConfig');
         }
         provider = new GeminiProvider(this.cfg.geminiApiKey);
+      } else if (this.cfg.defaultLlm.providerId === 'claude-cli') {
+        provider = new ClaudeCliProvider();
       } else {
         // Ollama — defaults to localhost:11434 if no baseUrl supplied (test path).
         provider = new OllamaProvider(this.cfg.ollamaBaseUrl ?? 'http://localhost:11434');
