@@ -83,6 +83,15 @@ brew install yt-dlp
 2. Click **Create API key** → copy it.
 3. In the app → Settings → Google Gemini → paste the key → Save key.
    - The key is stored in the macOS Keychain, never in plain text on disk.
+   - The model list is fetched live from Google, so new Gemini models show up automatically.
+
+### Claude (subscription) — for cloud LLM using your Claude Pro/Max plan
+No API key needed — the app runs the locally installed **Claude Code** CLI, which uses your Claude login.
+1. Install Claude Code: https://claude.com/claude-code
+2. In Terminal run `claude` once and log in with your Claude account.
+3. In the app → Settings → **Claude (subscription)** → **Test** — should say `OK`.
+4. Pick **Claude (subscription)** as provider (chat or Default LLM) with model `sonnet`, `opus` or `haiku`.
+   - Usage counts toward your Claude subscription limits.
 
 ---
 
@@ -96,6 +105,7 @@ brew install yt-dlp
 5. **LLM Providers**:
    - **Ollama base URL** — default `http://localhost:11434` works. Click **Test connection**.
    - **Google Gemini** — paste your API key (if you have one). Click **Test**.
+   - **Claude (subscription)** — if you have Claude Code installed and logged in. Click **Test**.
 6. **Workflow automation** (recommended):
    - ✅ Auto-start transcription after import
    - ✅ Auto-generate summary after transcription _(requires a Default LLM to be set)_
@@ -142,11 +152,30 @@ brew install yt-dlp
 
 ## Updating
 
-When a new version is released:
-1. Download the new `.dmg`.
-2. Drag the new `VideoSummary.app` into Applications — confirm **Replace**.
-3. Run `xattr -cr /Applications/VideoSummary.app` again (each new download gets quarantined).
-4. Your settings and library are preserved (they live in separate folders).
+Your settings, API keys and library are always preserved — they live outside the app.
+
+### From inside the app (v0.1.9 and newer)
+
+When a new version is out, a blue **Update available** banner appears at the top of the app.
+
+1. Click **Download update** — the new `.dmg` is saved to `~/Downloads` and Finder opens it.
+2. **Quit VideoSummary** (`⌘Q`) — replacing a running app doesn't work.
+3. Open the `.dmg` and drag `VideoSummary.app` into Applications → confirm **Replace**.
+4. Start the app. No `xattr` needed — the in-app download isn't quarantined by macOS.
+
+You can also check manually: **Settings → About → Check for updates**.
+
+### Manually (versions older than v0.1.9, or if the banner doesn't show)
+
+1. Download the latest `VideoSummary-<version>-arm64.dmg` from the [Releases page](https://github.com/JanHuntersi/video-summary/releases/latest).
+2. **Quit VideoSummary** (`⌘Q`).
+3. Drag the new `VideoSummary.app` into Applications → confirm **Replace**.
+4. Run `xattr -cr /Applications/VideoSummary.app` in Terminal (browser downloads are quarantined).
+
+### Still seeing the update banner after updating?
+
+- Check the version in **Settings → About**. If it still shows the old version, the old app wasn't replaced — make sure you quit it first and don't launch it from the mounted `.dmg`.
+- Versions 0.1.13 and 0.1.14 wrongly reported themselves as **0.1.12**, so the banner kept coming back. Updating to 0.1.17 or newer fixes this.
 
 ---
 
@@ -166,6 +195,9 @@ When a new version is released:
 
 **"VideoSummary is damaged and can't be opened"** (Sonoma+) or **"VideoSummary can't be opened because Apple cannot check it for malicious software"** (older macOS)
 → Gatekeeper is blocking the unsigned app. Run in Terminal: `xattr -cr /Applications/VideoSummary.app`. See step 3 above for all details.
+
+**Claude test fails ("Claude Code CLI not found" / not logged in)**
+→ Install Claude Code, then run `claude` once in Terminal and log in. Restart VideoSummary.
 
 **"Ollama unreachable"**
 → Check that Ollama is installed and running (`ollama list` in Terminal should work). Default URL is `http://localhost:11434`.
