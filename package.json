@@ -31,18 +31,8 @@
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "arm64"
-          ]
-        }
+        { "target": "dmg", "arch": [ "arm64" ] },
+        { "target": "zip", "arch": [ "arm64" ] }
       ],
       "identity": null,
       "hardenedRuntime": false,
@@ -52,14 +42,10 @@
       "writeUpdateInfo": false
     },
     "win": {
-      "target": [
-        "nsis"
-      ]
+      "target": [ "nsis" ]
     },
     "linux": {
-      "target": [
-        "AppImage"
-      ],
+      "target": [ "AppImage" ],
       "category": "AudioVideo"
     }
   },
