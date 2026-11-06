@@ -26,7 +26,7 @@ export interface VideoMeta {
   status: VideoStatus;
   hash?: string;
   transcription?: { model: string; language: string; completedAt: string };
-  summary?: { provider: 'ollama' | 'gemini'; model: string; systemPrompt: string; generatedAt: string };
+  summary?: { provider: LlmProviderId; model: string; systemPrompt: string; generatedAt: string };
   errorMessage?: string;
   tags?: string[];
   notes?: string;
@@ -51,7 +51,7 @@ export interface AppSettings {
   ollama: { baseUrl: string };
   gemini: { hasKey: boolean };          // actual key in keychain
   prompts: { summary: string; chat: string };
-  defaultLlm: { providerId: 'ollama' | 'gemini'; model: string };
+  defaultLlm: { providerId: LlmProviderId; model: string };
   autoTranscribe: boolean;
   autoSummarize: boolean;
 }
@@ -82,7 +82,7 @@ export interface ChatSummary {
   messageCount: number;
 }
 
-export type LlmProviderId = 'ollama' | 'gemini';
+export type LlmProviderId = 'ollama' | 'gemini' | 'claude-cli';
 
 export interface TranscriptionProgress {
   videoId: string;

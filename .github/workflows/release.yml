@@ -46,7 +46,7 @@ jobs:
               dist/*.exe
               dist/*.msi
           - id: linux
-            os: ubuntu-latest
+            os: ubuntu-22.04
             builder-flags: --linux
             artifact-glob: |
               dist/*.AppImage

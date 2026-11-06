@@ -1,6 +1,6 @@
 {
   "name": "video-summary-workflow",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "private": true,
   "main": "out/main/index.js",
   "scripts": {
@@ -50,7 +50,7 @@
     }
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
+    "@google/genai": "^3.0.0",
     "@types/mime-types": "^3.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
